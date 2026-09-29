@@ -90,7 +90,12 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
       password,
-      options: { data: { login_id: loginId.trim(), nickname: nickname.trim() } },
+      options: {
+        data: { login_id: loginId.trim(), nickname: nickname.trim() },
+        // Site URL 설정과 무관하게 실제 접속 중인 origin으로 확정 리다이렉트한다
+        // (Site URL이 나중에 바뀌어도, 지금 origin에서 가입한 사람은 지금 origin으로 돌아온다).
+        emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+      },
     });
     if (error) {
       if (/이미 사용 중인 아이디/.test(error.message)) return { ok: false, error: error.message };
