@@ -1,63 +1,120 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/supabase/auth-provider";
 import { isCorporateEmail } from "@/lib/auth/corporate-email";
-import { validateLoginId } from "@/lib/auth/login-id";
 
-type PageState = "idle" | "submitting" | "verification-sent";
+type Step = "email" | "otp";
 
 export default function SignUpPage() {
-  const { signUp } = useAuth();
+  const router = useRouter();
+  const { requestEmailOtp, verifyEmailOtp } = useAuth();
+  const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
-  const [loginId, setLoginId] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [fieldError, setFieldError] = useState<Record<string, string>>({});
-  const [formError, setFormError] = useState<string | null>(null);
-  const [state, setState] = useState<PageState>("idle");
+  const [token, setToken] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleRequestOtp = async (e: FormEvent) => {
     e.preventDefault();
-    if (state === "submitting") return;
-
-    const nextFieldError: Record<string, string> = {};
+    if (submitting) return;
     if (!isCorporateEmail(email)) {
-      nextFieldError.email = "@tanabe-pharma.com 회사 이메일만 가입할 수 있습니다.";
-    }
-    const loginIdValidation = validateLoginId(loginId);
-    if (!loginIdValidation.ok) nextFieldError.loginId = loginIdValidation.error;
-    if (!nickname.trim()) nextFieldError.nickname = "닉네임을 입력해 주세요.";
-    if (password.length < 8) nextFieldError.password = "비밀번호는 8자 이상이어야 해요.";
-    if (password !== confirmPassword) nextFieldError.confirmPassword = "비밀번호가 일치하지 않아요.";
-    setFieldError(nextFieldError);
-    if (Object.keys(nextFieldError).length > 0) return;
-
-    setFormError(null);
-    setState("submitting");
-    const result = await signUp(email, loginId, nickname, password);
-    if (!result.ok) {
-      setFormError(result.error);
-      setState("idle");
+      setEmailError("@tanabe-pharma.com 회사 이메일만 가입할 수 있습니다.");
       return;
     }
-    setState("verification-sent");
+    setEmailError(null);
+    setSubmitting(true);
+    const result = await requestEmailOtp(email);
+    setSubmitting(false);
+    if (!result.ok) {
+      setEmailError(result.error);
+      return;
+    }
+    setStep("otp");
   };
 
-  if (state === "verification-sent") {
+  const handleVerifyOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
+    if (!token.trim()) {
+      setOtpError("인증번호를 입력해 주세요.");
+      return;
+    }
+    setOtpError(null);
+    setSubmitting(true);
+    const result = await verifyEmailOtp(email, token);
+    setSubmitting(false);
+    if (!result.ok) {
+      setOtpError(result.error);
+      return;
+    }
+    router.replace("/signup/profile");
+  };
+
+  const handleResend = async () => {
+    setResendMessage(null);
+    setOtpError(null);
+    const result = await requestEmailOtp(email);
+    setResendMessage(result.ok ? "인증번호를 다시 보냈어요." : result.error);
+  };
+
+  if (step === "otp") {
     return (
-      <div className="mx-auto flex min-h-[60vh] w-full max-w-[400px] flex-col items-center justify-center gap-3 px-4 text-center">
-        <h1 className="text-[22px] font-bold tracking-[-0.02em]">회사 이메일을 확인해 주세요</h1>
-        <p className="text-[15px] leading-relaxed text-muted">
-          입력하신 회사 이메일로 인증 메일을 보냈습니다.
-          <br />
-          메일의 인증 링크를 눌러 가입을 완료해 주세요.
-        </p>
-        <Link href="/login" className="mt-4 text-sm font-medium text-accent">
-          로그인으로 돌아가기
-        </Link>
+      <div className="mx-auto flex w-full max-w-[400px] flex-col px-4 py-[6vh]">
+        <div className="mb-8 text-center">
+          <h1 className="text-[24px] font-bold tracking-[-0.02em] text-foreground">이메일 인증</h1>
+          <p className="mt-1.5 text-[15px] text-muted">
+            {email}로 인증번호를 보냈어요.
+          </p>
+        </div>
+
+        <form onSubmit={handleVerifyOtp} noValidate className="flex flex-col gap-4">
+          <label className="flex flex-col gap-1.5 text-sm">
+            <span className="font-medium">인증번호</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              aria-invalid={Boolean(otpError)}
+              className="h-12 rounded-xl border border-border bg-surface px-4 text-[15px] tracking-[0.2em] outline-none transition-colors focus-visible:border-accent"
+            />
+            {otpError && <span className="text-xs text-danger">{otpError}</span>}
+          </label>
+
+          {resendMessage && <p className="text-xs text-muted">{resendMessage}</p>}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="mt-2 h-[50px] rounded-xl bg-accent text-[15px] font-semibold text-white shadow-elevated transition-opacity active:opacity-80 disabled:opacity-60 disabled:shadow-none"
+          >
+            {submitting ? "확인 중…" : "인증하기"}
+          </button>
+        </form>
+
+        <div className="mt-6 flex justify-center gap-4 text-xs">
+          <button type="button" onClick={handleResend} className="font-medium text-accent">
+            인증번호 다시 받기
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setStep("email");
+              setToken("");
+              setOtpError(null);
+              setResendMessage(null);
+            }}
+            className="font-medium text-muted"
+          >
+            이메일 수정
+          </button>
+        </div>
       </div>
     );
   }
@@ -66,10 +123,10 @@ export default function SignUpPage() {
     <div className="mx-auto flex w-full max-w-[400px] flex-col px-4 py-[6vh]">
       <div className="mb-8 text-center">
         <h1 className="text-[24px] font-bold tracking-[-0.02em] text-foreground">조동아리 가입</h1>
-        <p className="mt-1.5 text-[15px] text-muted">회사 구성원 인증 후 이용할 수 있어요.</p>
+        <p className="mt-1.5 text-[15px] text-muted">회사 이메일로 구성원 인증을 시작해요.</p>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+      <form onSubmit={handleRequestOtp} noValidate className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5 text-sm">
           <span className="font-medium">회사 이메일</span>
           <input
@@ -77,77 +134,18 @@ export default function SignUpPage() {
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            aria-invalid={Boolean(fieldError.email)}
+            aria-invalid={Boolean(emailError)}
             className="h-12 rounded-xl border border-border bg-surface px-4 text-[15px] outline-none transition-colors focus-visible:border-accent"
           />
-          {fieldError.email && <span className="text-xs text-danger">{fieldError.email}</span>}
+          {emailError && <span className="text-xs text-danger">{emailError}</span>}
         </label>
-
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium">아이디</span>
-          <input
-            type="text"
-            autoComplete="username"
-            value={loginId}
-            onChange={(e) => setLoginId(e.target.value)}
-            aria-invalid={Boolean(fieldError.loginId)}
-            className="h-12 rounded-xl border border-border bg-surface px-4 text-[15px] outline-none transition-colors focus-visible:border-accent"
-          />
-          {fieldError.loginId && <span className="text-xs text-danger">{fieldError.loginId}</span>}
-        </label>
-
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium">닉네임</span>
-          <input
-            type="text"
-            autoComplete="nickname"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            maxLength={20}
-            aria-invalid={Boolean(fieldError.nickname)}
-            className="h-12 rounded-xl border border-border bg-surface px-4 text-[15px] outline-none transition-colors focus-visible:border-accent"
-          />
-          {fieldError.nickname && <span className="text-xs text-danger">{fieldError.nickname}</span>}
-        </label>
-
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium">비밀번호</span>
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            aria-invalid={Boolean(fieldError.password)}
-            className="h-12 rounded-xl border border-border bg-surface px-4 text-[15px] outline-none transition-colors focus-visible:border-accent"
-          />
-          {fieldError.password && <span className="text-xs text-danger">{fieldError.password}</span>}
-        </label>
-
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium">비밀번호 확인</span>
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            aria-invalid={Boolean(fieldError.confirmPassword)}
-            className="h-12 rounded-xl border border-border bg-surface px-4 text-[15px] outline-none transition-colors focus-visible:border-accent"
-          />
-          {fieldError.confirmPassword && <span className="text-xs text-danger">{fieldError.confirmPassword}</span>}
-        </label>
-
-        {formError && (
-          <p role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
-            {formError}
-          </p>
-        )}
 
         <button
           type="submit"
-          disabled={state === "submitting"}
+          disabled={submitting}
           className="mt-2 h-[50px] rounded-xl bg-accent text-[15px] font-semibold text-white shadow-elevated transition-opacity active:opacity-80 disabled:opacity-60 disabled:shadow-none"
         >
-          {state === "submitting" ? "가입 중…" : "가입하고 이메일 인증하기"}
+          {submitting ? "발송 중…" : "인증번호 받기"}
         </button>
       </form>
 

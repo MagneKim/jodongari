@@ -73,7 +73,12 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   }, [supabase]);
 
   const loadUsers = useCallback(async () => {
-    const { data, error } = await supabase.from("profiles").select("user_id, login_id, nickname, role, status");
+    // onboarding 미완료(회사 이메일만 인증하고 아이디/닉네임/비밀번호를 아직 설정하지 않은) shell 계정은
+    // 멤버 목록/참여자 선택기 등 일반 사용자 목록에 노출하지 않는다.
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("user_id, login_id, nickname, role, status")
+      .eq("onboarding_completed", true);
     if (error) throw error;
     setUsers((data ?? []).map(mapProfileRow));
   }, [supabase]);

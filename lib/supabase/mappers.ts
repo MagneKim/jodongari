@@ -21,11 +21,13 @@ export interface RawSightingRow extends SightingRow {
   sighting_comments: CommentRow[];
 }
 
+// onboarding_completed=true인 row만 호출한다 — DB constraint(profiles_onboarding_requires_identity)가
+// 그 상태에서 login_id/nickname not null을 보장하므로 여기서는 안전하게 non-null로 다룬다.
 export function mapProfileRow(row: ProfileRow): User {
   return {
     id: row.user_id,
-    loginId: row.login_id,
-    nickname: row.nickname,
+    loginId: row.login_id ?? "",
+    nickname: row.nickname ?? "",
     role: row.role as UserRole,
     status: row.status as UserStatus,
   };

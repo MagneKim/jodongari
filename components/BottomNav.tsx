@@ -49,10 +49,9 @@ const NAV_ITEMS = [
 
 const REVIEW_ITEM = { href: "/review", label: "검토", icon: "check" } as const;
 const ADMIN_ITEM = { href: "/admin", label: "관리자", icon: "admin" } as const;
+const MANAGE_ITEM = { href: "/manage", label: "관리", icon: "admin" } as const;
 
-// 모바일 bottom nav는 기본 5개 항목만 노출한다. leader/admin 전용 메뉴(검토/관리자)는
-// 공간이 넉넉한 desktop top nav에만 직접 노출하고, 모바일에서는 MY 페이지 "운영" 섹션으로 접근한다.
-function useNavItems(includeRoleMenus: boolean) {
+function useNavItems(includeRoleMenus: boolean, includeManageTab: boolean) {
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
   const { currentUser } = useAppData();
@@ -63,13 +62,14 @@ function useNavItems(includeRoleMenus: boolean) {
     ...NAV_ITEMS,
     ...(includeRoleMenus && canReview ? [REVIEW_ITEM] : []),
     ...(includeRoleMenus && currentUser.role === "admin" ? [ADMIN_ITEM] : []),
+    ...(includeManageTab && canReview ? [MANAGE_ITEM] : []),
   ];
 
   return { visible, items, pathname };
 }
 
 export function BottomNav() {
-  const { visible, items, pathname } = useNavItems(false);
+  const { visible, items, pathname } = useNavItems(false, true);
   if (!visible) return null;
 
   return (
@@ -98,7 +98,7 @@ export function BottomNav() {
 }
 
 export function TopNav() {
-  const { visible, items, pathname } = useNavItems(true);
+  const { visible, items, pathname } = useNavItems(true, false);
   if (!visible) return null;
 
   return (

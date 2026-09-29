@@ -145,6 +145,27 @@ supabase/migrations/0001_init.sql — profiles/sightings/sighting_participants/s
 - Storage: `sighting-media` bucket(private), path `{user_id}/{sighting_id}/{media_id}-{safe_filename}`. `SightingMedia.blob`(client-only)에 담긴 압축 이미지/원본 video·audio를 `submitSighting`이 업로드하고, 조회 시에는 signed URL로만 노출한다.
 - `submitSighting`/`approveSighting`/`addComment`/`updateNickname`/`updateUserRole`/`updateUserStatus`는 모두 async로 전환되어 실패 시 `{ok:false, error}`를 반환하고, 각 페이지가 alert() 없이 한국어 inline 에러로 표시한다.
 
+## Corporate Onboarding (Phase 4B-5)
+
+```text
+supabase/migrations/0005_onboarding.sql
+  — profiles.login_id/nickname nullable화, onboarding_completed(default true, 기존 row 자동 backfill)
+  — profiles_onboarding_requires_identity check: onboarding_completed=true면 login_id/nickname not null 강제
+  — validate_nickname() trigger + profiles_nickname_key unique index (trim + case-insensitive)
+  — handle_new_user() 갱신: auth user 생성 시점에는 login_id/nickname 없이 "profile shell"만 만들고
+    onboarding_completed=false로 시작 (role은 기존과 동일하게 NEW.email 기준 결정)
+lib/auth/nickname.ts — nickname validation (client, DB trigger와 동일 규칙)
+app/api/onboarding/check-login-id/route.ts — authenticated user 전용, available boolean만 반환
+app/api/onboarding/check-nickname/route.ts — 위와 동일 패턴
+app/signup/page.tsx         — STEP1(회사 이메일) + STEP2(OTP 인증), signInWithOtp/verifyOtp 사용
+app/signup/profile/page.tsx — STEP3, 중복확인 후 auth.updateUser(password) → profiles 1회 update로 finalize
+```
+
+- 회사 이메일 인증 수단이 confirmation link → email OTP로 바뀌었다: `supabase.auth.signInWithOtp({email, options:{shouldCreateUser:true}})`로 인증번호를 보내고 `supabase.auth.verifyOtp({email, token, type:"email"})`로 확인한다. `signInWithOtp`도 새 auth user 생성 시 Before User Created hook을 그대로 거치므로 도메인 차단은 변경 없이 유지된다(production에서 gmail.com/lookalike 도메인 모두 재검증 완료).
+- OTP 인증 직후에는 `auth.users` row만 있고 `profiles.login_id`/`nickname`은 아직 비어 있다 (`onboarding_completed=false`). `RouteGuard`가 이 상태의 authenticated user를 `/signup/profile` 외 모든 route에서 차단한다(`useAuth().onboardingIncomplete`).
+- finalization은 별도 RPC 없이 2단계로 처리한다: `auth.updateUser({password})` → `profiles` 단일 update(`login_id`, `nickname`, `onboarding_completed:true`). 이 update가 실패하면(중복 등) `onboarding_completed`는 여전히 false로 남아 사용자가 `/signup/profile`에서 재시도할 수 있다 — `profiles_update_self` RLS와 `profiles_onboarding_requires_identity` check만으로 partial-failure를 방어하므로 finalization RPC를 별도로 만들지 않았다.
+- 멤버 목록/참여자 선택기는 `AppDataProvider.loadUsers`가 `onboarding_completed=true`만 조회하도록 필터링해 미완료 shell 계정이 노출되지 않는다.
+
 ## Corporate Email + Custom Login ID (Phase 4A-2)
 
 ```text

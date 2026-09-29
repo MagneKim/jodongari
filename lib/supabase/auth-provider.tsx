@@ -1,66 +1,84 @@
 "use client";
 
-// SupabaseAuthProvider — app/layout.tsx의 기본 Auth provider (Phase 4A-2).
+// SupabaseAuthProvider — app/layout.tsx의 기본 Auth provider (Phase 4B-5).
 // 실제 로그인은 login_id + password로 하고(email은 회사 소속 인증 수단일 뿐), 가입은
-// signUp()으로 Supabase Auth email confirmation flow를 그대로 쓴다.
+// email OTP(signInWithOtp/verifyOtp)로 회사 이메일을 인증한 뒤 /signup/profile에서
+// login_id/nickname/password를 채워 onboarding을 완료한다.
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { createClient } from "./client";
 import type { User, UserRole, UserStatus } from "../types";
 
 export type LoginResult = { ok: true } | { ok: false; error: string; code?: "email_not_confirmed" };
-export type SignUpResult = { ok: true } | { ok: false; error: string };
+export type OtpResult = { ok: true } | { ok: false; error: string };
 export type ChangePasswordResult = { ok: true } | { ok: false; error: string };
 
 interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
+  onboardingIncomplete: boolean;
   login: (loginId: string, password: string) => Promise<LoginResult>;
-  signUp: (email: string, loginId: string, nickname: string, password: string) => Promise<SignUpResult>;
+  requestEmailOtp: (email: string) => Promise<OtpResult>;
+  verifyEmailOtp: (email: string, token: string) => Promise<OtpResult>;
   logout: () => void;
   changePassword: (currentPassword: string, newPassword: string) => Promise<ChangePasswordResult>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function loadProfile(supabase: ReturnType<typeof createClient>, userId: string): Promise<User | null> {
+interface ProfileState {
+  user: User | null;
+  onboardingIncomplete: boolean;
+}
+
+const EMPTY_PROFILE: ProfileState = { user: null, onboardingIncomplete: false };
+
+async function loadProfileState(supabase: ReturnType<typeof createClient>, userId: string): Promise<ProfileState> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("user_id, login_id, nickname, role, status")
+    .select("user_id, login_id, nickname, role, status, onboarding_completed")
     .eq("user_id", userId)
     .single();
-  if (error || !data) return null;
+  if (error || !data) return EMPTY_PROFILE;
+  if (!data.onboarding_completed || !data.login_id || !data.nickname) {
+    return { user: null, onboardingIncomplete: true };
+  }
   return {
-    id: data.user_id,
-    loginId: data.login_id,
-    nickname: data.nickname,
-    role: data.role as UserRole,
-    status: data.status as UserStatus,
+    user: {
+      id: data.user_id,
+      loginId: data.login_id,
+      nickname: data.nickname,
+      role: data.role as UserRole,
+      status: data.status as UserStatus,
+    },
+    onboardingIncomplete: false,
   };
 }
 
 export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   const [supabase] = useState(() => createClient());
-  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<ProfileState>(EMPTY_PROFILE);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
     // email 미인증 session은 profile row가 있어도 로그인하지 않은 것으로 취급한다
-    // (section 13/17: unconfirmed session이 app access를 얻지 못하도록).
+    // (unconfirmed session이 app access를 얻지 못하도록).
     supabase.auth.getSession().then(async ({ data }) => {
       const authUser = data.session?.user;
-      const profile = authUser?.email_confirmed_at ? await loadProfile(supabase, authUser.id) : null;
+      const next = authUser?.email_confirmed_at ? await loadProfileState(supabase, authUser.id) : EMPTY_PROFILE;
       if (!cancelled) {
-        setUser(profile);
+        setProfile(next);
         setIsLoading(false);
       }
     });
 
     const { data: subscription } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const profile = session?.user?.email_confirmed_at ? await loadProfile(supabase, session.user.id) : null;
-      if (!cancelled) setUser(profile);
+      const next = session?.user?.email_confirmed_at
+        ? await loadProfileState(supabase, session.user.id)
+        : EMPTY_PROFILE;
+      if (!cancelled) setProfile(next);
     });
 
     return () => {
@@ -86,37 +104,41 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   };
 
-  const signUp: AuthContextValue["signUp"] = async (email, loginId, nickname, password) => {
-    const { error } = await supabase.auth.signUp({
+  const requestEmailOtp: AuthContextValue["requestEmailOtp"] = async (email) => {
+    const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      password,
-      options: {
-        data: { login_id: loginId.trim(), nickname: nickname.trim() },
-        // Site URL 설정과 무관하게 실제 접속 중인 origin으로 확정 리다이렉트한다
-        // (Site URL이 나중에 바뀌어도, 지금 origin에서 가입한 사람은 지금 origin으로 돌아온다).
-        emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
-      },
+      options: { shouldCreateUser: true },
     });
     if (error) {
-      if (/이미 사용 중인 아이디/.test(error.message)) return { ok: false, error: error.message };
-      if (/already registered|already exists/i.test(error.message)) {
-        return { ok: false, error: "이미 가입된 이메일이에요." };
-      }
       if (/tanabe-pharma|회사 이메일/i.test(error.message)) {
         return { ok: false, error: "@tanabe-pharma.com 회사 이메일만 가입할 수 있습니다." };
       }
-      return { ok: false, error: "가입에 실패했어요. 잠시 후 다시 시도해 주세요." };
+      if (/rate limit|too many/i.test(error.message)) {
+        return { ok: false, error: "잠시 후 다시 시도해 주세요." };
+      }
+      return { ok: false, error: "인증번호 발송에 실패했어요. 잠시 후 다시 시도해 주세요." };
+    }
+    return { ok: true };
+  };
+
+  const verifyEmailOtp: AuthContextValue["verifyEmailOtp"] = async (email, token) => {
+    const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: token.trim(), type: "email" });
+    if (error) {
+      if (/expired/i.test(error.message)) {
+        return { ok: false, error: "인증번호가 만료되었습니다. 다시 받아 주세요." };
+      }
+      return { ok: false, error: "인증번호를 확인해 주세요." };
     }
     return { ok: true };
   };
 
   const logout = () => {
     void supabase.auth.signOut();
-    setUser(null);
+    setProfile(EMPTY_PROFILE);
   };
 
   const changePassword: AuthContextValue["changePassword"] = async (currentPassword, newPassword) => {
-    if (!user) return { ok: false, error: "로그인이 필요합니다." };
+    if (!profile.user) return { ok: false, error: "로그인이 필요합니다." };
     const { data: sessionData } = await supabase.auth.getSession();
     const email = sessionData.session?.user.email;
     if (!email) return { ok: false, error: "계정 정보를 찾을 수 없습니다." };
@@ -135,7 +157,18 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signUp, logout, changePassword }}>
+    <AuthContext.Provider
+      value={{
+        user: profile.user,
+        isLoading,
+        onboardingIncomplete: profile.onboardingIncomplete,
+        login,
+        requestEmailOtp,
+        verifyEmailOtp,
+        logout,
+        changePassword,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

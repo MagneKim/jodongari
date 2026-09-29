@@ -20,8 +20,9 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
-          login_id: string
-          nickname: string
+          login_id: string | null
+          nickname: string | null
+          onboarding_completed: boolean
           role: string
           status: string
           updated_at: string
@@ -29,8 +30,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          login_id: string
-          nickname: string
+          login_id?: string | null
+          nickname?: string | null
+          onboarding_completed?: boolean
           role?: string
           status?: string
           updated_at?: string
@@ -38,8 +40,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          login_id?: string
-          nickname?: string
+          login_id?: string | null
+          nickname?: string | null
+          onboarding_completed?: boolean
           role?: string
           status?: string
           updated_at?: string

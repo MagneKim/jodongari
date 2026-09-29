@@ -220,3 +220,10 @@
 - Canonical production URL: `https://tpkr-jodongari.netlify.app` (기존 `jodongari-236` 사이트 이름만 변경, site ID/env var/deploy history는 그대로 유지).
 - Netlify site naming은 hyphen을 사용한다(underscore 불가 — Netlify subdomain 제약).
 - Mobile calendar 좌측 쏠림의 실제 root cause는 `Calendar.tsx`의 `w-[300px]` fixed-width wrapper에 `mx-auto`가 없어 전체 폭 bottom sheet 안에서 block 기본 좌측 정렬된 것이었다(DatePicker trigger width 문제였던 Phase 4B-1과 무관). month nav/weekday/date grid가 모두 이 하나의 wrapper 안에 있어 `mx-auto` 한 줄로 전체가 함께 중앙 정렬된다.
+
+2026-09-30 (Phase 4B-5)
+- 모바일에서 admin/leader가 검토·관리 기능에 진입할 수 없던 root cause는 role resolution 버그가 아니라 `BottomNav.tsx`의 의도적 설계였다 — `useNavItems(false)`로 mobile에서 role 메뉴를 아예 배제하고 "MY 운영 섹션"으로 대체한다는 주석만 남긴 채 실제 MY 화면에는 그 섹션이 없었다. 새 RPC/역할 로직을 추가하지 않고 기존 `currentUser.role`(profiles.role)을 그대로 재사용해 mobile bottom nav에 `관리` 탭 1개(leader/admin 한정)만 추가하고 `/manage`로 연결했다 — 별도 review/admin 항목을 mobile에 각각 노출하지 않은 이유는 6개 탭도 빠듯한 mobile 폭에서 항목 수를 최소로 유지하기 위해서다.
+- `/manage`는 desktop에 이미 있는 검토/관리자 메뉴를 대체하지 않는 mobile 전용 hub다. desktop `TopNav`는 기존 `includeRoleMenus` 분기를 그대로 유지했다.
+- onboarding finalization에 별도 RPC를 만들지 않았다 — `profiles_update_self` RLS(이미 본인 row의 모든 column을 update 가능)와 새 `profiles_onboarding_requires_identity` check 제약(onboarding_completed=true면 login_id/nickname not null 강제)만으로 "중복된 id/nickname으로 finalize 시도 → 예외 발생 → onboarding_completed는 false로 남아 재시도 가능"이 원자적으로 보장된다. `auth.updateUser({password})`와 `profiles` update는 서로 다른 시스템이라 하나의 DB transaction으로 묶을 수 없으므로, password를 먼저 설정하고 profiles update가 실패하면 사용자는 같은 비밀번호로 `/signup/profile`에서 재시도한다(password 재설정은 요구하지 않음 — 이미 성공했으므로).
+- `onboarding_completed` column은 `not null default true`로 추가했다 — 기존 row(bootstrap admin 1건)가 이미 login_id/nickname/password를 모두 갖춘 완성 계정이라 자동으로 backfill되고, 신규 가입은 `handle_new_user()`가 명시적으로 `false`를 넣는다. 별도 backfill UPDATE 문을 추가하지 않았다.
+- Email 인증 수단을 confirmation link에서 email OTP(`signInWithOtp`/`verifyOtp`)로 바꾼 뒤, production Supabase Auth REST endpoint에 직접 curl로 negative test를 수행해 Before User Created hook이 OTP 경로에서도 동일하게 동작함을 확인했다(`gmail.com`, `tanabe-pharma.com.example.com` 모두 400 차단, 실제 auth user 생성 없음).

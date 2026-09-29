@@ -667,3 +667,32 @@ Cache 주의사항: favicon/apple-icon은 브라우저·iOS에 강하게 캐시�
 - [ ] Supabase Dashboard → Authentication → URL Configuration → **Site URL**을 `https://tpkr-jodongari.netlify.app`로 변경
 - [ ] 같은 화면 **Redirect URLs**에 `https://tpkr-jodongari.netlify.app/**` 추가, `http://localhost:3000/**`는 유지, `https://jodongari-236.netlify.app/**`는 새 URL 검증 후 제거 권장
 - [ ] iPhone Safari 실기기에서 375/390/430 캘린더 육안 확인 (에뮬레이션으로는 확인했지만 사용자가 보고한 실기기 재현이 아직 없음)
+
+## Phase 4B-5 — Privileged Mobile Navigation + Verified Corporate Onboarding
+
+### Admin navigation
+- [x] admin management tab: `components/BottomNav.tsx`가 leader/admin에게만 mobile bottom nav에 `관리` 탭(`/manage`)을 추가로 노출하도록 수정
+- [x] review accessible: `/manage`의 검토 카드 → `/review` (leader/admin)
+- [x] admin accessible: `/manage`의 사용자 관리 카드 → `/admin` (admin만, `ManagePage`가 role로 카드 필터링)
+- [x] leader management tab: leader는 `관리` 탭은 보이되 `/manage` 안에는 검토 카드만 노출 (admin 카드는 role 필터로 제외)
+- [x] member no management tab: `canReview`(leader/admin)가 아니면 `관리` 탭 자체가 렌더링되지 않음(`BottomNav.tsx` `useNavItems`)
+- [x] RouteGuard: `/manage`에 leader/admin 가드 추가 (member/비로그인은 `/`로 redirect)
+- [ ] 375/390/430 실기기·에뮬레이터로 6개 탭 겹침/safe-area 육안 확인 (코드 변경만 완료, 시각 QA는 미수행)
+- [ ] bootstrap admin 계정으로 production에서 `관리` → `/manage` → 검토/사용자 관리 실제 클릭 확인
+
+### Signup redesign
+- [x] email only first: `/signup` STEP1은 회사 이메일 input 하나만 노출
+- [x] OTP: `signInWithOtp`/`verifyOtp("email")`로 교체, STEP2에서 인증번호 입력
+- [x] resend: STEP2 "인증번호 다시 받기" → `requestEmailOtp` 재호출
+- [x] ID duplicate check: `/signup/profile`에서 `POST /api/onboarding/check-login-id` (authenticated 전용)
+- [x] nickname duplicate check: `POST /api/onboarding/check-nickname` (authenticated 전용, DB에 `profiles_nickname_key` unique index 신설)
+- [x] password: STEP3에서 8자 이상 + 확인 일치 검증 후 `auth.updateUser({password})`
+- [x] onboarding guard: `RouteGuard`가 `onboardingIncomplete` 상태의 authenticated user를 `/signup/profile` 외 모든 route에서 차단
+- [x] external domain blocked: OTP 경로에서도 Before User Created hook이 그대로 적용됨을 production curl로 재검증(gmail.com, tanabe-pharma.com.example.com 모두 400)
+- [ ] 실제 회사 이메일로 STEP1~4 전체 E2E (이메일 QA 계정 없어 이번 세션에서는 미수행)
+- [ ] Supabase Dashboard Email Template을 `{{ .Token }}` 포함하도록 수동 교체 필요 (미완료 시 OTP 메일에 인증번호가 안 보임)
+
+### Verification
+- [x] `npx tsc --noEmit` 통과
+- [x] `npm run lint` — 프로젝트 소스(app/components/lib) 신규 에러 없음(`.netlify/` 빌드 산출물의 기존 lint 노이즈는 무관)
+- [x] `npm run build` 통과 (stale `.next` 캐시의 `/qacalendartmp` 잔재 제거 후 정상)
