@@ -619,3 +619,24 @@ Cache 주의사항: favicon/apple-icon은 브라우저·iOS에 강하게 캐시�
 - [x] image/video/audio upload 정상 (`accept="image/*,video/*,audio/*"`, `buildSightingMedia`가 `File.type` 기준으로 그대로 분류)
 - [x] camera 정상 (`accept="image/*" capture="environment"`, mobile bottom sheet에만 존재)
 - [x] Storage regression 없음 (media pipeline/`lib/media.ts` 미변경)
+
+## Phase 4B-3 — Production Deploy + iPhone Safari Verification
+
+### Deploy
+- [x] Netlify 사이트가 GitHub repo와 연결되어 있지 않음 확인 (`build_settings: {}`, 기존 deploy 전부 `deploy_source: "cli"`) → git push는 자동 배포를 트리거하지 않으므로 `netlify deploy --prod --build`로 기존 site(jodongari-236)에 수동 production 배포 진행
+- [x] Netlify env 확인: `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`는 이미 존재, `SUPABASE_SERVICE_ROLE_KEY`는 누락되어 있어 배포 전 등록 요청 → 등록 완료 확인 후 진행
+- [x] tsc/lint/build 로컬 통과 (lint 오류는 전부 gitignored `.netlify/` 빌드 산출물에서만 발생, 실제 소스는 경고 1개(`app/login/page.tsx`, 기존 코드, 이번 변경과 무관)뿐)
+
+### Production Smoke Test
+- [x] `/`, `/login`, `/signup`, `/record`, `/my`, `/admin`, `/sightings`, `/members`, `/review`, `/encyclopedia` 모두 200 응답
+- [x] `/icon.png`, `/apple-icon.png`, `/favicon.ico` 모두 200, 올바른 content-type
+- [x] `POST /api/auth/login` 정상 동작 (존재하지 않는 계정으로 400 "아이디 또는 비밀번호를 확인해 주세요." 응답 — 500이 아니므로 `SUPABASE_SERVICE_ROLE_KEY` 정상 인식 확인)
+- [x] client JS 번들 11개 전체에 `service_role` 문자열 없음 확인 (service role key 노출 없음)
+- [x] signup redirect: `emailRedirectTo`가 `window.location.origin` 기반이라 production에서 자동으로 `https://jodongari-236.netlify.app` 사용 (코드 확인, Phase 4A-2에서 이미 수정됨)
+
+### Manual iPhone Safari verification still required (실기기 확인 필요, 여기서는 체크하지 않음)
+- [ ] 375/390/430 mobile viewport에서 날짜 field 오른쪽 여백 없음 + 캘린더 정상 동작
+- [ ] mobile 미디어 추가 → 파일 업로드 / 카메라로 촬영 2개 옵션만 노출
+- [ ] 실제 카메라 촬영 + preview
+- [ ] Safari → 홈 화면에 추가 시 새 app icon 정상 반영 (기존 shortcut이 있다면 삭제 후 재추가 필요)
+- [ ] custom ID 로그인 실기기 확인
