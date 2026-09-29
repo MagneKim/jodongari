@@ -640,3 +640,30 @@ Cache 주의사항: favicon/apple-icon은 브라우저·iOS에 강하게 캐시�
 - [ ] 실제 카메라 촬영 + preview
 - [ ] Safari → 홈 화면에 추가 시 새 app icon 정상 반영 (기존 shortcut이 있다면 삭제 후 재추가 필요)
 - [ ] custom ID 로그인 실기기 확인
+
+## Phase 4B-4 — Mobile Calendar Centering + Netlify Site Rename
+
+### Calendar
+- [x] Root cause: `components/date/Calendar.tsx`의 wrapper `div`가 `w-[300px]`(fixed) block인데 `mx-auto`가 없어, 전체 폭인 mobile bottom sheet 안에서 기본 좌측 정렬됨. Desktop popover는 `CalendarPopover`가 `sm:w-auto`로 content-width 축소돼 눈에 띄지 않았음. Phase 4B-1의 DatePicker trigger width 문제와는 무관.
+- [x] Fix: wrapper에 `mx-auto` 한 줄 추가. month nav / weekday row / date grid가 모두 이 하나의 wrapper 안에 있어 셋이 함께 중앙 정렬됨(개별 조정 불필요).
+- [x] `qacalendartmp` 임시 route + `RouteGuard.tsx` public path 임시 추가로 로컬에서 `DatePicker`를 직접 렌더링해 375/390/430 확인 후 되돌림(production에는 배포되지 않음, 배포는 그 전에 시작됨 — `/qacalendartmp` production 404 확인).
+- [x] 375×812: 좌우 여백 대칭, header/weekday/grid/selected circle 모두 중앙
+- [x] 390×844: 동일하게 정상
+- [x] 430×932: 동일하게 정상
+- [x] Desktop(1440×900) popover: 기존과 동일하게 정상, 폭 변화 없음
+- [x] `DateRangePicker`도 동일한 `Calendar` 컴포넌트를 공유해서 사용하므로 자동으로 함께 수정됨(범위 선택 footer 프리셋 버튼 포함, 별도 코드 변경 없음)
+
+### Netlify site rename
+- [x] 기존 site(`jodongari-236`, ID `e63401f4-7135-4bb2-a141-0275e3d6f24f`) 그대로 유지, `netlify api updateSite`로 이름만 `tpkr-jodongari`로 변경 (새 project 생성 없음)
+- [x] Production URL: `https://tpkr-jodongari.netlify.app`
+- [x] Env var(`NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`) rename 후에도 3개 모두 유지 확인
+- [x] `.netlify/state.json`의 site ID 기준으로 CLI link 그대로 유지됨 (`netlify status`로 재확인)
+- [x] 코드 전역에 `jodongari-236`/`.netlify.app` hardcoded 문자열 없음 확인 (signup `emailRedirectTo`가 이미 `window.location.origin` 기반이라 코드 변경 불필요)
+- [x] Production smoke test: `/`, `/login`, `/signup`, `/record`, `/icon.png`, `/apple-icon.png`, `/favicon.ico` 모두 200
+- [x] `POST /api/auth/login` 존재하지 않는 계정으로 400 응답(500 아님 → service role key 정상 인식)
+- [x] Old URL(`https://jodongari-236.netlify.app`) rename 후 404 확인 — 더 이상 canonical로 사용하지 않음
+
+### Manual action remaining (Dashboard 수동 설정 필요, CLI/MCP로 변경 불가)
+- [ ] Supabase Dashboard → Authentication → URL Configuration → **Site URL**을 `https://tpkr-jodongari.netlify.app`로 변경
+- [ ] 같은 화면 **Redirect URLs**에 `https://tpkr-jodongari.netlify.app/**` 추가, `http://localhost:3000/**`는 유지, `https://jodongari-236.netlify.app/**`는 새 URL 검증 후 제거 권장
+- [ ] iPhone Safari 실기기에서 375/390/430 캘린더 육안 확인 (에뮬레이션으로는 확인했지만 사용자가 보고한 실기기 재현이 아직 없음)

@@ -52,7 +52,7 @@ export function Calendar({
   const days = buildGrid(month);
 
   return (
-    <div className="w-[300px] max-w-full select-none p-4">
+    <div className="mx-auto w-[300px] max-w-full select-none p-4">
       <div className="mb-3 flex items-center justify-between">
         <button
           type="button"

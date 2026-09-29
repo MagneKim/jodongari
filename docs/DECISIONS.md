@@ -215,3 +215,8 @@
 2026-09-29 (Phase 4B-2)
 - Media picker UX를 단순화했다: Desktop은 "파일 업로드" 단일 native `<input type="file" accept="image/*,video/*,audio/*" multiple>`을 미디어 섹션에 바로 노출해 1단계로 끝나고(popover 없음), Mobile은 "미디어 추가" 버튼 → bottom sheet에서 "파일 업로드" / "카메라로 촬영" 2개만 남긴다. 실제 iPhone Safari에서 "사진 또는 영상"/"녹음 파일"/"파일에서 선택"이 모두 동일한 native picker로 이어져 구분에 의미가 없었기 때문(사용자 실측). desktop/mobile 분기는 `sm:` Tailwind class로 처리하고 JS width 분기는 추가하지 않았다.
 - Media type 판별은 이미 `File.type` 기준으로 `buildSightingMedia`(`lib/media.ts`)가 처리하고 있어 source가 하나로 합쳐져도 변경이 필요 없었다 — media limits/validation/Storage pipeline은 그대로다.
+
+2026-09-30 (Phase 4B-4)
+- Canonical production URL: `https://tpkr-jodongari.netlify.app` (기존 `jodongari-236` 사이트 이름만 변경, site ID/env var/deploy history는 그대로 유지).
+- Netlify site naming은 hyphen을 사용한다(underscore 불가 — Netlify subdomain 제약).
+- Mobile calendar 좌측 쏠림의 실제 root cause는 `Calendar.tsx`의 `w-[300px]` fixed-width wrapper에 `mx-auto`가 없어 전체 폭 bottom sheet 안에서 block 기본 좌측 정렬된 것이었다(DatePicker trigger width 문제였던 Phase 4B-1과 무관). month nav/weekday/date grid가 모두 이 하나의 wrapper 안에 있어 `mx-auto` 한 줄로 전체가 함께 중앙 정렬된다.
