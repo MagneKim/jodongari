@@ -236,12 +236,24 @@ export default function RecordPage() {
               <p className="text-xs text-muted">사진, 영상 또는 녹음 파일을 추가할 수 있어요.</p>
 
               <div className="relative w-fit">
+                <label className="relative hidden h-11 w-fit cursor-pointer items-center rounded-full bg-accent-soft px-4 text-xs font-medium text-accent sm:inline-flex has-[:disabled]:pointer-events-none has-[:disabled]:opacity-40">
+                  파일 업로드
+                  <input
+                    type="file"
+                    accept="image/*,video/*,audio/*"
+                    multiple
+                    disabled={media.length >= MEDIA_LIMITS.maxCount}
+                    onChange={handleMediaSelect}
+                    aria-label="파일 업로드"
+                    className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  />
+                </label>
                 <button
                   ref={mediaTriggerRef}
                   type="button"
                   onClick={() => setMediaPickerOpen(true)}
                   disabled={media.length >= MEDIA_LIMITS.maxCount}
-                  className="inline-flex h-11 w-fit items-center rounded-full bg-accent-soft px-4 text-xs font-medium text-accent disabled:pointer-events-none disabled:opacity-40"
+                  className="inline-flex h-11 w-fit items-center rounded-full bg-accent-soft px-4 text-xs font-medium text-accent sm:hidden disabled:pointer-events-none disabled:opacity-40"
                 >
                   미디어 추가
                 </button>

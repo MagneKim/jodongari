@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-export type MediaSourceKind = "photoVideo" | "camera" | "audio" | "generic";
+export type MediaSourceKind = "upload" | "camera";
 
 const ACTIONS: {
   key: MediaSourceKind;
@@ -12,14 +12,13 @@ const ACTIONS: {
   accept: string;
   capture?: "environment";
   multiple?: boolean;
-  mobileOnly?: boolean;
 }[] = [
   {
-    key: "photoVideo",
-    icon: "🖼️",
-    title: "사진 또는 영상",
-    desc: "사진과 동영상을 선택해요",
-    accept: "image/*,video/*",
+    key: "upload",
+    icon: "📁",
+    title: "파일 업로드",
+    desc: "사진, 영상 또는 녹음 파일을 선택해요",
+    accept: "image/*,video/*,audio/*",
     multiple: true,
   },
   {
@@ -29,23 +28,6 @@ const ACTIONS: {
     desc: "새 사진을 촬영해요",
     accept: "image/*",
     capture: "environment",
-    mobileOnly: true,
-  },
-  {
-    key: "audio",
-    icon: "🎵",
-    title: "녹음 파일",
-    desc: "저장된 오디오 파일을 선택해요",
-    accept: "audio/*",
-    multiple: true,
-  },
-  {
-    key: "generic",
-    icon: "📁",
-    title: "파일에서 선택",
-    desc: "기기의 파일을 선택해요",
-    accept: "image/*,video/*,audio/*",
-    multiple: true,
   },
 ];
 
@@ -85,23 +67,23 @@ export function MediaSourcePicker({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:absolute sm:inset-auto sm:top-[calc(100%+8px)] sm:left-0 sm:block sm:items-stretch sm:justify-start">
-      <div className="fixed inset-0 bg-black/25 sm:hidden" aria-hidden="true" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:hidden">
+      <div className="fixed inset-0 bg-black/25" aria-hidden="true" onClick={onClose} />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label="미디어 추가"
-        className="relative w-full rounded-t-3xl border border-border bg-surface pb-[env(safe-area-inset-bottom)] shadow-popover sm:w-[340px] sm:rounded-[20px] sm:pb-0"
+        className="relative w-full rounded-t-3xl border border-border bg-surface pb-[env(safe-area-inset-bottom)] shadow-popover"
       >
-        <div className="flex items-center justify-between border-b border-border px-4 py-3 sm:hidden">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <span className="text-[15px] font-semibold">미디어 추가</span>
         </div>
         <ul className="divide-y divide-border py-1">
           {ACTIONS.map((a) => (
-            <li key={a.key} className={a.mobileOnly ? "sm:hidden" : undefined}>
+            <li key={a.key}>
               <div className="relative min-w-0">
-                <div className="flex min-w-0 items-center gap-3 px-4 py-3.5 sm:py-3">
+                <div className="flex min-w-0 items-center gap-3 px-4 py-3.5">
                   <span
                     aria-hidden="true"
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-base"
@@ -109,7 +91,7 @@ export function MediaSourcePicker({
                     {a.icon}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-medium sm:text-sm">{a.title}</span>
+                    <span className="block truncate text-[15px] font-medium">{a.title}</span>
                     <span className="block truncate text-xs text-muted">{a.desc}</span>
                   </span>
                   <span aria-hidden="true" className="shrink-0 text-muted">
@@ -122,7 +104,7 @@ export function MediaSourcePicker({
                   multiple={a.multiple}
                   capture={a.capture}
                   onChange={handleChange}
-                  aria-label={`${a.title} 선택`}
+                  aria-label={a.title}
                   className="absolute inset-0 h-full w-full cursor-pointer opacity-0 focus-visible:ring-2 focus-visible:ring-accent"
                 />
               </div>

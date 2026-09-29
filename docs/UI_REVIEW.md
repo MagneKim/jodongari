@@ -587,3 +587,35 @@
 
 ### 알려진 남은 이슈
 - 실제 사용자 데스크톱 Chrome에서 하드 리프레시(캐시 무시) 후에도 재현되면, 확장 프로그램을 모두 끈 시크릿 창에서 재확인 필요 — 이 Phase 안에서는 검증 채널이 없어 완료 처리하지 않는다.
+
+## Phase 4B-1 — Mobile Date Field + App Icon
+
+### Mobile Date
+- [x] 390px에서 우측 여백 없음
+- [x] 375px에서 정상 (390px과 동일 구조, 회귀 없음)
+- [x] 430px에서 정상 (동일)
+- [x] desktop 회귀 없음 (1440px에서 오히려 동일한 버그가 있었고 함께 해결됨)
+
+Root cause: `components/date/DatePicker.tsx`의 trigger wrapper `<div className="relative inline-block">`가 `QuickDateField`의 `flex flex-col` 컨테이너 안에서 flex item으로 blockify되어 부모 폭만큼 늘어나지만, 내부 `<button>`에는 `w-full`이 없어 버튼이 자기 콘텐츠 크기로만 그려짐 — 그 결과 늘어난 wrapper와 좁은 button 사이의 차이가 오른쪽 여백으로 보였다. 실제 Tailwind 클래스를 그대로 쓴 격리 HTML로 390px/1440px 양쪽에서 재현 후 수정 확인(Playwright screenshot).
+
+Fix: wrapper를 `relative`로, button에 `w-full` 추가 (`components/date/DatePicker.tsx`). Popover는 `sm:left-0`/`fixed inset-0`(mobile bottom sheet) 기준이라 trigger 폭 변경과 무관 — desktop popover 위치 영향 없음.
+
+### App Icon
+- [x] browser favicon 적용 (`app/icon.png`, `app/favicon.ico`)
+- [x] Apple touch icon 적용 (`app/apple-icon.png`, 180×180)
+- [x] icon crop/scale 자연스러움 (bird bbox 기준 centered, canvas의 ~76%)
+- [x] 기존 brand illustration 유지 (`public/img/jodongari-illustration.png` 미변경, login/home 그대로 사용)
+- [x] production cache 주의사항 기록 (아래)
+
+`jodongari-img` 디렉터리는 repo에 없었다 — 가장 가까운 소스는 `img/icon.jpeg`(원형 뱃지 + 텍스트, 1254×1254)와 `img/jodongari.png`(새 캐릭터만, alpha 있음, `public/img/jodongari-illustration.png`와 동일). `icon.jpeg`는 텍스트가 favicon/32px 크기에서 읽히지 않아 원본 그대로 쓰지 않고, `img/jodongari.png`를 bbox로 tight-crop → 흰색 정사각 캔버스 중앙 배치(76% 비율)로 전용 app icon을 새로 생성했다.
+
+Cache 주의사항: favicon/apple-icon은 브라우저·iOS에 강하게 캐시된다. 배포 후 확인 시 hard refresh/시크릿 창이 필요할 수 있고, 이미 홈 화면에 추가된 shortcut은 삭제 후 재추가해야 새 아이콘이 반영된다.
+
+## Phase 4B-2 — Media Picker 단순화 (File Upload + Camera)
+
+- [x] desktop file upload 1개 (popover 없이 `record/page.tsx`의 미디어 섹션에 직접 노출)
+- [x] mobile file upload + camera (bottom sheet 2개 옵션)
+- [x] redundant media options 제거 (사진 또는 영상 / 녹음 파일 / 파일에서 선택 → 파일 업로드로 통합)
+- [x] image/video/audio upload 정상 (`accept="image/*,video/*,audio/*"`, `buildSightingMedia`가 `File.type` 기준으로 그대로 분류)
+- [x] camera 정상 (`accept="image/*" capture="environment"`, mobile bottom sheet에만 존재)
+- [x] Storage regression 없음 (media pipeline/`lib/media.ts` 미변경)

@@ -26,14 +26,14 @@ export function DatePicker({
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   return (
-    <div className={`relative inline-block ${className ?? ""}`}>
+    <div className={`relative ${className ?? ""}`}>
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-4 text-[15px] transition-colors hover:border-accent/50"
+        className="flex h-11 w-full items-center gap-2 rounded-xl border border-border bg-background px-4 text-[15px] transition-colors hover:border-accent/50"
       >
         <CalendarIcon />
         <span>{formatTrigger(value)}</span>
