@@ -1,69 +1,96 @@
+"use client";
+
 import Image from "next/image";
+import Link from "next/link";
+import { useAppData } from "@/lib/app-data-context";
+import { calculateUserExp, countApprovedSightings, getLevel } from "@/lib/exp";
+import { buildEncyclopedia } from "@/lib/encyclopedia";
 
 export default function Home() {
+  const { currentUser, sightings, birds } = useAppData();
+
+  const myExp = calculateUserExp(currentUser.id, sightings);
+  const { level } = getLevel(myExp);
+  const sightingCount = countApprovedSightings(currentUser.id, sightings);
+
+  const encyclopedia = buildEncyclopedia(currentUser.id, sightings, birds);
+  const unlockedCount = encyclopedia.filter((e) => e.unlocked).length;
+  const recentUnlocked = encyclopedia
+    .filter((e) => e.unlocked && e.lastSeenAt)
+    .sort((a, b) => (b.lastSeenAt ?? "").localeCompare(a.lastSeenAt ?? ""))
+    .slice(0, 4);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="flex flex-col gap-14 lg:gap-16">
+      <section className="mx-auto w-full max-w-[1200px]">
+        <div className="flex flex-col items-center gap-8 pb-6 text-center lg:flex-row lg:items-center lg:justify-between lg:gap-12 lg:pb-8 lg:text-left">
+          <div className="flex flex-col items-center lg:items-start">
+            <h1 className="max-w-2xl text-[40px] font-extrabold leading-[1.05] tracking-[-0.04em] text-foreground sm:text-[48px] lg:text-[64px]">
+              오늘 만난 새를,
+              <br />
+              <span className="text-accent">오래 기억하는 방법.</span>
+            </h1>
+            <p className="mt-5 max-w-md text-[17px] text-muted lg:text-[19px]">
+              우리끼리 기록하고 발견하는 탐조 생활
+            </p>
+          </div>
+
+          <div
+            className="w-[60%] max-w-[260px] shrink-0 md:w-[38%] md:max-w-[320px] lg:w-[30%] lg:max-w-[380px]"
+            style={{
+              background: "radial-gradient(circle, rgba(0,113,227,0.07), transparent 60%)",
+            }}
           >
             <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+              src="/img/jodongari-illustration.png"
+              alt=""
+              width={1210}
+              height={1122}
+              priority
+              sizes="(min-width: 1024px) 30vw, (min-width: 768px) 38vw, 60vw"
+              className="h-auto w-full object-contain"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
         </div>
-      </main>
+      </section>
+
+      <section className="mx-auto w-full max-w-[1200px] border-t border-separator pt-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[19px] font-semibold">
+              {currentUser.nickname} <span className="ml-1 text-accent">Lv.{level}</span>
+            </p>
+            <p className="mt-1 text-sm text-muted">
+              {unlockedCount}종 발견 · 탐조 {sightingCount}회
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Link
+              href="/record"
+              className="rounded-full bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-soft"
+            >
+              탐조 기록하기
+            </Link>
+            <Link
+              href="/sightings"
+              className="rounded-full bg-surface-secondary px-4 py-2.5 text-sm font-medium text-foreground"
+            >
+              내 기록 보기
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          {recentUnlocked.length > 0 ? (
+            <p className="text-sm">
+              <span className="text-muted">최근 발견 </span>
+              {recentUnlocked.map((e) => e.species.koreanName).join(" · ")}
+            </p>
+          ) : (
+            <p className="text-sm text-muted">아직 발견 기록이 없어요.</p>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

@@ -2,25 +2,105 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --surface-secondary: #f5f5f7;
+  --surface-blue: #f5faff;
+  --foreground: #1d1d1f;
+  --muted: #6e6e73;
+  --label-tertiary: #86868b;
+  --border: rgba(0, 0, 0, 0.08);
+  --separator: rgba(0, 0, 0, 0.08);
+  --accent: #0071e3;
+  --accent-strong: #0066cc;
+  --accent-hover: #0077ed;
+  --accent-soft: #eaf3ff;
+  --danger: #ff3b30;
+  --warning: #ff9f0a;
+  --success: #34c759;
+
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.03);
+  --shadow-elevated: 0 10px 24px -10px rgba(0, 113, 227, 0.35), 0 2px 6px -2px rgba(0, 0, 0, 0.06);
+  --shadow-popover: 0 20px 40px -12px rgba(0, 0, 0, 0.18), 0 4px 12px -4px rgba(0, 0, 0, 0.08);
+
+  --surface-hover: rgba(0, 0, 0, 0.04);
+  --surface-selected: #0071e3;
+  --calendar-range: rgba(0, 113, 227, 0.12);
+  --calendar-range-edge: #0071e3;
+  --sky-tint: #f2f8ff;
+
+  --nav-height-desktop: 52px;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-surface-blue: var(--surface-blue);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-muted: var(--muted);
+  --color-label-tertiary: var(--label-tertiary);
+  --color-border: var(--border);
+  --color-separator: var(--separator);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --shadow-soft: var(--shadow-soft);
+  --shadow-elevated: var(--shadow-elevated);
+  --shadow-popover: var(--shadow-popover);
+
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-selected: var(--surface-selected);
+  --color-calendar-range: var(--calendar-range);
+  --color-calendar-range-edge: var(--calendar-range-edge);
+  --color-sky-tint: var(--sky-tint);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  line-height: 1.45;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@keyframes hero-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-hero-fade-up {
+  animation: hero-fade-up 0.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

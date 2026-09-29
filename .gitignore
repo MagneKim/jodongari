@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# bird master dataset source (raw XLSX, 공공저작물 제3유형 - repo에 원본 포함하지 않음)
+/data/source/*.xlsx
+
 # next.js
 /.next/
 /out/
@@ -32,6 +35,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.local.example
 
 # vercel
 .vercel
