@@ -242,3 +242,12 @@
 - production에서 신규 회원 생성(`POST /api/manage/users`, OTP 가입 경로 포함 모든 `auth.users` insert)이 전부 500으로 실패하는 버그를 발견했다. 원인: 0005에서 `profiles.login_id`를 nullable로 바꿔 `handle_new_user()`가 login_id 없이 "profile shell"을 insert하게 했지만, 0004의 `validate_login_id()` 트리거는 null을 빈 문자열로 취급해 무조건 예외를 던졌다(`validate_nickname()`은 이미 null early-return이 있어 같은 문제가 없었음). `supabase/migrations/0007_fix_login_id_null_trigger.sql`로 trigger에 동일한 null early-return을 추가해 수정, production에 즉시 적용했다.
 - `eslint.config.mjs`의 globalIgnores에 `.netlify/**`가 빠져 있어 `npm run lint`가 Netlify 빌드 산출물(번들된 JS)까지 검사해 759개의 가짜 에러를 보고했다. ignore 목록에 추가해 수정.
 - admin 계정 비밀번호를 분실한 상태로 테스트를 시작해, service_role key로 `auth.admin.updateUserById`를 직접 호출해 임시 비밀번호로 재설정했다(`must_change_password=true` 동반 설정) — 별도 recovery UI를 만들지 않고 1회성 운영 작업으로 처리했다.
+
+2026-10-02 (Phase 4B-9)
+- 로그인된 사용자의 비밀번호 변경에서 "현재 비밀번호" 요구를 없앴다 — 이미 authenticated session이 있으므로 `supabase.auth.updateUser({password})` 하나로 충분하고, 재인증을 추가하는 건 이 규모의 invite-only 앱에 과하다고 판단했다(요구사항 42, 향후 보안 수준 상향 시 재검토 가능).
+- 로그아웃 상태의 복구는 두 단계로 분리했다: "아이디 찾기"(회사 이메일+닉네임 둘 다 일치해야 login_id를 바로 보여줌, password 권한 없음)와 "비밀번호 재설정 요청"(같은 조건으로 `password_reset_requests`에 pending row만 남기고 Admin이 처리). 두 API 모두 실패 원인(이메일 불일치/닉네임 불일치/inactive/미존재)을 구분하지 않고 동일한 generic 메시지를 반환해 enumeration을 막는다 — 공용 lookup 로직은 `lib/supabase/account-lookup.ts` 하나로 합쳤다.
+- `password_reset_requests`는 email/nickname/password를 저장하지 않고 user_id + status(pending/resolved/cancelled)만 남긴다 — 별도 audit log table을 만들지 않고 이 table 자체가 최소 audit 역할을 하게 했다. 동일 user의 중복 pending request는 partial unique index(`status='pending'`)로 DB level에서 막았다.
+- Admin의 재설정 처리는 기존 `POST /api/manage/users/[userId]/reset-password`를 재사용했다 — body에 `resetRequestId`가 있으면 같은 요청 안에서 해당 request를 resolved로 갱신한다. 새 처리용 endpoint를 따로 만들지 않았다.
+- Leader는 여전히 비밀번호 재설정 권한이 없다 — 계정 탈취 가능성이 있는 privileged action이라 Admin 전용으로 유지(요구사항 17).
+- public lookup API 2개에 Redis 등 외부 infra 없이 in-memory rate limit(`lib/auth/rate-limit.ts`, IP당 분당 5회)을 적용했다. ponytail 주석으로 명시했듯 서버리스 다중 인스턴스에서는 인스턴스별로 한도가 나뉘는 한계가 있다 — 지금 트래픽 규모(회원 10명 내외)에서는 충분하다고 판단했고, 진짜 분산 rate limit이 필요해지면 Redis/Upstash로 교체한다.
+- 단독 Admin lockout 대비 `scripts/reset-user-password.ts`를 추가했다. 새 CLI dependency 없이 `@supabase/supabase-js`와 Node raw-mode stdin만으로 hidden password prompt를 구현했고, 비밀번호를 CLI argument로 받지 않는다(shell history 노출 방지). 이 script는 production Next 빌드에 포함되지 않는 순수 server-only 로컬 실행 파일이다.

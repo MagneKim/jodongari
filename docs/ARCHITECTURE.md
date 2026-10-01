@@ -204,3 +204,18 @@ app/login/page.tsx  — email/password 대신 login_id/password, 로그인 성�
 - `SupabaseAuthProvider.signUp`은 `supabase.auth.signUp()`을 그대로 쓴다 — `options.data`로 `login_id`/`nickname`만 전달하고 role/status는 전달하지 않는다(client가 권한을 지정할 수 없게).
 - email은 profiles에 저장하지 않는다(Phase 4 결정 유지). 본인 email은 client가 `supabase.auth.getUser()`로 직접 조회해 MY 화면에만 표시하고, 다른 사용자의 email은 service_role 없이는 조회 불가능하다.
 - email 미인증 session은 로그인한 것으로 취급하지 않는다 — `SupabaseAuthProvider`가 `session.user.email_confirmed_at`이 없으면 profile을 불러오지 않고 `user=null`로 둔다(RouteGuard가 자동으로 `/login`으로 보냄).
+
+## Account Recovery (Phase 4B-9)
+
+```text
+로그인 상태 비밀번호 변경: supabase.auth.updateUser({ password }) 만으로 처리 (현재 비밀번호 불필요).
+로그아웃 상태:
+  아이디 찾기        → POST /api/account/find-login-id (email+nickname 모두 일치해야 login_id 반환)
+  비밀번호 재설정 요청 → POST /api/account/password-reset-request → password_reset_requests(pending) insert
+  Admin 처리         → /manage/recovery → 기존 POST /api/manage/users/[userId]/reset-password 재사용(resetRequestId 포함)
+단독 Admin lockout 대비 → scripts/reset-user-password.ts (service_role, local-only, hidden stdin prompt)
+```
+
+- `lib/supabase/account-lookup.ts`(server-only)가 email+nickname 일치 검증 로직의 단일 source of truth다. 두 public API(`find-login-id`, `password-reset-request`) 모두 이걸 재사용하고, 실패 원인(이메일/닉네임/inactive/미존재)을 구분하지 않는 동일한 generic 메시지를 반환한다 — enumeration 방지.
+- `password_reset_requests`(migration 0008)는 email/nickname/password를 저장하지 않고 `user_id`만 연결한다. RLS는 admin만 select/update 가능하고, insert는 `/api/account/password-reset-request`의 service_role 호출에서만 일어난다(authenticated insert policy 없음). 동일 user의 중복 pending request는 partial unique index로 DB가 막는다.
+- public lookup API 2개는 `lib/auth/rate-limit.ts`(in-memory, IP당 분당 5회)로 최소 rate limit을 건다 — 별도 Redis 등 infra는 추가하지 않았다.
