@@ -4,6 +4,7 @@ import { SupabaseAuthProvider } from "@/lib/supabase/auth-provider";
 import { AppDataProvider } from "@/lib/app-data-context";
 import { RouteGuard } from "@/components/RouteGuard";
 import { BottomNav, TopNav } from "@/components/BottomNav";
+import { PasswordReminderBanner } from "@/components/PasswordReminderBanner";
 
 export const metadata: Metadata = {
   title: "조동아리",
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SupabaseAuthProvider>
           <AppDataProvider>
             <RouteGuard>
+              <PasswordReminderBanner />
               <TopNav />
               <main className="w-full flex-1 px-4 pb-24 pt-6 sm:px-6 lg:px-10 lg:pb-16 lg:pt-10">
                 {children}

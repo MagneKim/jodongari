@@ -6,7 +6,7 @@ import type { Comment, MediaType, Sighting, SightingMedia, SightingStatus, User,
 
 type ProfileRow = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
-  "user_id" | "login_id" | "nickname" | "role" | "status"
+  "user_id" | "login_id" | "nickname" | "role" | "status" | "must_change_password"
 >;
 type SightingRow = Database["public"]["Tables"]["sightings"]["Row"];
 type MediaRow = Database["public"]["Tables"]["sighting_media"]["Row"];
@@ -30,6 +30,7 @@ export function mapProfileRow(row: ProfileRow): User {
     nickname: row.nickname ?? "",
     role: row.role as UserRole,
     status: row.status as UserStatus,
+    mustChangePassword: row.must_change_password,
   };
 }
 

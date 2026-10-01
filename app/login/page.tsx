@@ -12,8 +12,6 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [fieldError, setFieldError] = useState<{ loginId?: string; password?: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [showResend, setShowResend] = useState(false);
-  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -27,30 +25,16 @@ export default function LoginPage() {
     if (nextFieldError.loginId || nextFieldError.password) return;
 
     setFormError(null);
-    setShowResend(false);
-    setResendMessage(null);
     setSubmitting(true);
     const result = await login(loginId, password);
     setSubmitting(false);
 
     if (!result.ok) {
       setFormError(result.error);
-      setShowResend(result.code === "email_not_confirmed");
       return;
     }
     // 서버가 발급한 세션 cookie를 client가 다시 읽도록 전체 새로고침한다.
     window.location.href = "/";
-  };
-
-  const handleResend = async () => {
-    setResendMessage(null);
-    const res = await fetch("/api/auth/resend-confirmation", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ loginId }),
-    });
-    const body = await res.json().catch(() => null);
-    setResendMessage(body?.message ?? "인증 메일을 다시 보냈어요. 받은편지함을 확인해 주세요.");
   };
 
   return (
@@ -139,14 +123,8 @@ export default function LoginPage() {
             {formError && (
               <div role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
                 <p>{formError}</p>
-                {showResend && (
-                  <button type="button" onClick={handleResend} className="mt-1 font-medium underline">
-                    인증 메일 다시 보내기
-                  </button>
-                )}
               </div>
             )}
-            {resendMessage && <p className="text-xs text-muted">{resendMessage}</p>}
 
             <button
               type="submit"
@@ -160,7 +138,7 @@ export default function LoginPage() {
           <p className="mt-8 text-center text-xs text-muted">
             처음이신가요?{" "}
             <Link href="/signup" className="font-medium text-accent">
-              회사 이메일로 가입
+              가입 안내 보기
             </Link>
           </p>
         </div>

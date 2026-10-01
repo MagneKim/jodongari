@@ -64,7 +64,7 @@ export default function MyPage() {
         <h2 className="mb-1 text-[19px] font-semibold">계정</h2>
         <NicknameRow nickname={currentUser.nickname} onSave={updateNickname} />
         <LoginIdRow loginId={currentUser.loginId} onSave={updateLoginId} />
-        <PasswordRow onSave={changePassword} />
+        <PasswordRow onSave={changePassword} highlight={currentUser.mustChangePassword} />
         {authEmail && (
           <div className="flex min-h-[56px] items-center justify-between gap-4 border-b border-border py-3">
             <span className="w-20 shrink-0 text-sm text-muted">회사 이메일</span>
@@ -247,8 +247,10 @@ function LoginIdRow({
 
 function PasswordRow({
   onSave,
+  highlight,
 }: {
   onSave: (current: string, next: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  highlight?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [current, setCurrent] = useState("");
@@ -339,7 +341,9 @@ function PasswordRow({
           <button
             type="button"
             onClick={startEdit}
-            className="shrink-0 px-2 py-3 text-sm font-medium text-accent"
+            className={`shrink-0 px-2 py-3 text-sm font-medium ${
+              highlight ? "rounded-full bg-accent text-white" : "text-accent"
+            }`}
           >
             변경
           </button>

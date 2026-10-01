@@ -1,5 +1,22 @@
 # ARCHITECTURE.md
 
+## Membership: Invite-Only (Phase 4B-7, 최신)
+
+```text
+Membership: invite-only — public self-signup 없음.
+Provisioning: admin/leader가 /manage/users/new → POST /api/manage/users(server-only, service_role)로 직접 생성.
+  leader → member만 생성 가능 / admin → member/leader/admin 모두 생성·관리 가능.
+Auth: 회사 이메일(@tanabe-pharma.com)은 internal identity일 뿐, 로그인은 login_id/password.
+Recovery: SMTP 미도입 — Admin이 "임시 비밀번호 재설정"(POST /api/manage/users/[userId]/reset-password)으로 복구.
+```
+
+- 이전 phase(4B-5/4B-6)의 OTP/Magic Link 기반 self-signup(`/signup`, `/signup/profile`, `/auth/confirm`, `supabase.auth.signInWithOtp`)은 모두 제거했다. `/signup`은 이제 "초대된 멤버만 이용 가능" 안내만 보여주는 정적 화면이다.
+- 신규 계정은 `admin.auth.admin.createUser({ email, password, email_confirm: true })`로 즉시 생성되므로 이메일 인증 대기 상태가 존재하지 않는다. `handle_new_user()` trigger가 만드는 profile shell(role=member, onboarding_completed=false)을 provisioning endpoint가 같은 요청 안에서 `login_id`/`nickname`/`role`/`onboarding_completed=true`/`must_change_password=true`로 update한다.
+- `profiles.must_change_password`(0006 migration)는 admin/leader가 만든 계정, 또는 admin이 임시 비밀번호를 재설정한 계정에서 true다. MY에서 비밀번호 변경에 성공하면 client가 직접 false로 되돌린다. 강제 차단은 하지 않고 soft reminder banner만 띄운다(`components/PasswordReminderBanner.tsx`).
+- Supabase Dashboard에서 "Allow new users to sign up"을 비활성화해도 `admin.auth.admin.createUser`(service_role)는 영향받지 않는다 — 이 설정은 anon/public signup에만 적용된다.
+- role 권한은 client session을 신뢰하지 않는다: `POST /api/manage/users`가 매 요청마다 호출자의 `profiles.role`을 서버에서 다시 조회해 leader는 `role !== "member"` 요청을 거부한다.
+- 중복 확인(`/api/onboarding/check-login-id`, `/api/onboarding/check-nickname`)은 "authenticated user 누구나 호출 가능"하게 이미 구현돼 있어 그대로 재사용했다 — onboarding 전용으로 좁혀져 있지 않다.
+
 ## Auth Identity 모델 (Phase 4A-2)
 
 ```text
@@ -12,7 +29,7 @@ POST /api/auth/login (server-only) — login_id → email resolve(service_role) 
 ```
 
 - email은 profiles에 저장하지 않는다(Phase 4 결정 유지). 본인 email은 client가 `supabase.auth.getUser()`로 직접 조회할 수 있지만(MY 화면 표시용), 다른 사용자의 email은 service_role 없이는 조회 불가능하다.
-- login_id → email mapping은 client에 노출되지 않는다. `lib/supabase/admin.ts`(service_role, server-only)가 `app/api/auth/login/route.ts`/`app/api/auth/resend-confirmation/route.ts` 안에서만 이 mapping을 resolve한다.
+- login_id → email mapping은 client에 노출되지 않는다. `lib/supabase/admin.ts`(service_role, server-only)가 `app/api/auth/login/route.ts`/`app/api/manage/users/route.ts`/`app/api/manage/users/[userId]/reset-password/route.ts` 안에서만 이 mapping을 resolve하거나 Auth user를 직접 생성/수정한다.
 - role은 client metadata를 신뢰하지 않는다. `handle_new_user()`가 `NEW.email`을 DB에서 직접 비교해 결정한다(`mingyo.kim@tanabe-pharma.com` → admin, 그 외 정상 도메인 → member).
 - login_id validation(4~20자 영문/숫자/_/-, reserved word, 중복)은 `lib/auth/login-id.ts`(client)와 `public.validate_login_id()` trigger(DB, 최종 source of truth) 두 곳에 동일 규칙으로 존재한다.
 - email 미인증 session은 로그인한 것으로 취급하지 않는다 — `SupabaseAuthProvider`가 `session.user.email_confirmed_at`이 없으면 profile을 불러오지 않고 `user=null`로 둔다(RouteGuard가 자동으로 `/login`으로 보냄).

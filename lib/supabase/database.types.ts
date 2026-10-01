@@ -21,6 +21,7 @@ export type Database = {
         Row: {
           created_at: string
           login_id: string | null
+          must_change_password: boolean
           nickname: string | null
           onboarding_completed: boolean
           role: string
@@ -31,6 +32,7 @@ export type Database = {
         Insert: {
           created_at?: string
           login_id?: string | null
+          must_change_password?: boolean
           nickname?: string | null
           onboarding_completed?: boolean
           role?: string
@@ -41,6 +43,7 @@ export type Database = {
         Update: {
           created_at?: string
           login_id?: string | null
+          must_change_password?: boolean
           nickname?: string | null
           onboarding_completed?: boolean
           role?: string

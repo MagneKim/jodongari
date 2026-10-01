@@ -7,6 +7,7 @@ export interface User {
   nickname: string;
   role: UserRole;
   status: UserStatus;
+  mustChangePassword: boolean;
 }
 
 export interface BirdSpecies {

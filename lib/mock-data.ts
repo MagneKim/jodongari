@@ -1,10 +1,10 @@
 import type { Sighting, User } from "./types";
 
 export const MOCK_USERS: User[] = [
-  { id: "u-leader", loginId: "leader", nickname: "박회장", role: "leader", status: "active" },
-  { id: "u-member1", loginId: "member1", nickname: "김민수", role: "member", status: "active" },
-  { id: "u-member2", loginId: "member2", nickname: "이지현", role: "member", status: "active" },
-  { id: "u-admin", loginId: "admin", nickname: "관리자", role: "admin", status: "active" },
+  { id: "u-leader", loginId: "leader", nickname: "박회장", role: "leader", status: "active", mustChangePassword: false },
+  { id: "u-member1", loginId: "member1", nickname: "김민수", role: "member", status: "active", mustChangePassword: false },
+  { id: "u-member2", loginId: "member2", nickname: "이지현", role: "member", status: "active", mustChangePassword: false },
+  { id: "u-admin", loginId: "admin", nickname: "관리자", role: "admin", status: "active", mustChangePassword: false },
 ];
 
 // mock sighting의 speciesId는 실제 data/birds.json(국립생물자원관 국가생물종목록) id로 매핑됨.

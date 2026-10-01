@@ -11,7 +11,14 @@ import birdsData from "@/data/birds.json";
 const BIRDS = birdsData as BirdSpecies[];
 const NICKNAME_MAX_LENGTH = 20;
 const SIGNED_URL_TTL_SECONDS = 3600;
-const EMPTY_USER: User = { id: "", loginId: "", nickname: "", role: "member", status: "active" };
+const EMPTY_USER: User = {
+  id: "",
+  loginId: "",
+  nickname: "",
+  role: "member",
+  status: "active",
+  mustChangePassword: false,
+};
 
 const SIGHTING_SELECT = `id, author_id, observed_date, place, note, status, leader_note, created_at,
   sighting_participants(user_id),
@@ -35,6 +42,7 @@ interface AppDataContextValue {
   updateLoginId: (loginId: string) => Promise<ActionResult>;
   updateUserRole: (userId: string, role: UserRole) => Promise<ActionResult>;
   updateUserStatus: (userId: string, status: UserStatus) => Promise<ActionResult>;
+  resetUserPassword: (userId: string, temporaryPassword: string) => Promise<ActionResult>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -77,7 +85,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     // 멤버 목록/참여자 선택기 등 일반 사용자 목록에 노출하지 않는다.
     const { data, error } = await supabase
       .from("profiles")
-      .select("user_id, login_id, nickname, role, status")
+      .select("user_id, login_id, nickname, role, status, must_change_password")
       .eq("onboarding_completed", true);
     if (error) throw error;
     setUsers((data ?? []).map(mapProfileRow));
@@ -309,6 +317,18 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   };
 
+  const resetUserPassword: AppDataContextValue["resetUserPassword"] = async (userId, temporaryPassword) => {
+    const res = await fetch(`/api/manage/users/${userId}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ temporaryPassword }),
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.ok) return { ok: false, error: body?.error ?? "임시 비밀번호 재설정에 실패했어요." };
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, mustChangePassword: true } : u)));
+    return { ok: true };
+  };
+
   if (isLoading) {
     return (
       <div className="flex min-h-[50vh] w-full items-center justify-center text-sm text-muted">불러오는 중…</div>
@@ -343,6 +363,7 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     updateLoginId,
     updateUserRole,
     updateUserStatus,
+    resetUserPassword,
   };
 
   return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;

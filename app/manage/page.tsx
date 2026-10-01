@@ -13,6 +13,12 @@ const CARDS: { href: string; title: string; description: string; roles: UserRole
     roles: ["leader", "admin"],
   },
   {
+    href: "/manage/users/new",
+    title: "새 회원 추가",
+    description: "초대할 회원의 계정을 직접 등록합니다.",
+    roles: ["leader", "admin"],
+  },
+  {
     href: "/admin",
     title: "사용자 관리",
     description: "회원의 역할과 상태를 관리합니다.",
