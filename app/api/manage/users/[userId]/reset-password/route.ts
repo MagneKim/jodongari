@@ -21,6 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ use
 
   const body = await request.json().catch(() => null);
   const temporaryPassword = typeof body?.temporaryPassword === "string" ? body.temporaryPassword : "";
+  const resetRequestId = typeof body?.resetRequestId === "string" ? body.resetRequestId : null;
   const validation = validatePassword(temporaryPassword);
   if (!validation.ok) return NextResponse.json({ ok: false, error: validation.error }, { status: 400 });
 
@@ -36,6 +37,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ use
     .eq("user_id", userId);
   if (profileError) {
     return NextResponse.json({ ok: false, error: "임시 비밀번호 재설정에 실패했어요. 다시 시도해 주세요." }, { status: 500 });
+  }
+
+  if (resetRequestId) {
+    await admin
+      .from("password_reset_requests")
+      .update({ status: "resolved", resolved_at: new Date().toISOString(), resolved_by: actor.id })
+      .eq("id", resetRequestId)
+      .eq("status", "pending");
   }
 
   console.log("[manage/users] 임시 비밀번호 재설정", { actorId: actor.id, targetUserId: userId });

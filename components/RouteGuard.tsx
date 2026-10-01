@@ -5,7 +5,7 @@ import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/lib/supabase/auth-provider";
 
 const ADMIN_PATHS = ["/admin"];
-const PUBLIC_PATHS = ["/login", "/signup"];
+const PUBLIC_PATHS = ["/login", "/signup", "/account-help"];
 
 export function RouteGuard({ children }: { children: ReactNode }) {
   const { user, isLoading, onboardingIncomplete } = useAuth();

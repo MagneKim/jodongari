@@ -126,6 +126,10 @@ export default function LoginPage() {
               </div>
             )}
 
+            <Link href="/account-help" className="text-right text-xs font-medium text-accent">
+              아이디 또는 비밀번호를 잊으셨나요?
+            </Link>
+
             <button
               type="submit"
               disabled={submitting}

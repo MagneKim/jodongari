@@ -42,7 +42,7 @@ interface AppDataContextValue {
   updateLoginId: (loginId: string) => Promise<ActionResult>;
   updateUserRole: (userId: string, role: UserRole) => Promise<ActionResult>;
   updateUserStatus: (userId: string, status: UserStatus) => Promise<ActionResult>;
-  resetUserPassword: (userId: string, temporaryPassword: string) => Promise<ActionResult>;
+  resetUserPassword: (userId: string, temporaryPassword: string, resetRequestId?: string) => Promise<ActionResult>;
 }
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -317,11 +317,11 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   };
 
-  const resetUserPassword: AppDataContextValue["resetUserPassword"] = async (userId, temporaryPassword) => {
+  const resetUserPassword: AppDataContextValue["resetUserPassword"] = async (userId, temporaryPassword, resetRequestId) => {
     const res = await fetch(`/api/manage/users/${userId}/reset-password`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ temporaryPassword }),
+      body: JSON.stringify({ temporaryPassword, resetRequestId }),
     });
     const body = await res.json().catch(() => null);
     if (!res.ok || !body?.ok) return { ok: false, error: body?.error ?? "임시 비밀번호 재설정에 실패했어요." };

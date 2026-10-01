@@ -19,7 +19,7 @@ interface AuthContextValue {
   onboardingIncomplete: boolean;
   login: (loginId: string, password: string) => Promise<LoginResult>;
   logout: () => void;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<ChangePasswordResult>;
+  changePassword: (newPassword: string) => Promise<ChangePasswordResult>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -108,21 +108,15 @@ export function SupabaseAuthProvider({ children }: { children: ReactNode }) {
     setProfile(EMPTY_PROFILE);
   };
 
-  const changePassword: AuthContextValue["changePassword"] = async (currentPassword, newPassword) => {
+  const changePassword: AuthContextValue["changePassword"] = async (newPassword) => {
     if (!profile.user) return { ok: false, error: "로그인이 필요합니다." };
-    const { data: sessionData } = await supabase.auth.getSession();
-    const email = sessionData.session?.user.email;
-    if (!email) return { ok: false, error: "계정 정보를 찾을 수 없습니다." };
-
-    const { error: reauthError } = await supabase.auth.signInWithPassword({ email, password: currentPassword });
-    if (reauthError) return { ok: false, error: "현재 비밀번호가 일치하지 않습니다." };
 
     const validation = validatePassword(newPassword);
     if (!validation.ok) return validation;
-    if (newPassword === currentPassword) {
-      return { ok: false, error: "기존 비밀번호와 다른 비밀번호를 입력해 주세요." };
-    }
 
+    // 로그인된 사용자는 이미 authenticated session이 있으므로 기존 비밀번호 확인 없이
+    // Supabase Auth updateUser만으로 변경한다(Phase 4B-9 section 41) — 다른 사용자의
+    // 비밀번호를 바꿀 수 있는 경로가 아니라 본인 session에 한정된 작업이다.
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) return { ok: false, error: "비밀번호 변경에 실패했어요. 다시 시도해 주세요." };
 

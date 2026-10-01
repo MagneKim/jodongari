@@ -249,11 +249,10 @@ function PasswordRow({
   onSave,
   highlight,
 }: {
-  onSave: (current: string, next: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  onSave: (next: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   highlight?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
-  const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -261,7 +260,6 @@ function PasswordRow({
   const [submitting, setSubmitting] = useState(false);
 
   const startEdit = () => {
-    setCurrent("");
     setNext("");
     setConfirm("");
     setError(null);
@@ -276,13 +274,12 @@ function PasswordRow({
     }
     setSubmitting(true);
     setError(null);
-    const result = await onSave(current, next);
+    const result = await onSave(next);
     setSubmitting(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    setCurrent("");
     setNext("");
     setConfirm("");
     setSuccess(true);
@@ -294,13 +291,6 @@ function PasswordRow({
       {editing && <span className="text-xs text-muted">비밀번호</span>}
       {editing ? (
         <div className="flex flex-col gap-2">
-          <input
-            type="password"
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-            placeholder="현재 비밀번호"
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          />
           <input
             type="password"
             value={next}
@@ -320,7 +310,7 @@ function PasswordRow({
             <button
               type="button"
               onClick={save}
-              disabled={submitting || !current || !next || !confirm}
+              disabled={submitting || !next || !confirm}
               className="flex-1 rounded-lg bg-accent py-2.5 text-sm font-medium text-white disabled:opacity-40"
             >
               저장

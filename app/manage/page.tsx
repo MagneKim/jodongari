@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAppData } from "@/lib/app-data-context";
+import { createClient } from "@/lib/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import type { UserRole } from "@/lib/types";
 
@@ -24,11 +26,28 @@ const CARDS: { href: string; title: string; description: string; roles: UserRole
     description: "회원의 역할과 상태를 관리합니다.",
     roles: ["admin"],
   },
+  {
+    href: "/manage/recovery",
+    title: "계정 복구 요청",
+    description: "비밀번호 재설정 요청을 확인하고 처리합니다.",
+    roles: ["admin"],
+  },
 ];
 
 export default function ManagePage() {
   const { currentUser } = useAppData();
   const cards = CARDS.filter((c) => c.roles.includes(currentUser.role));
+  const [pendingRecoveryCount, setPendingRecoveryCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (currentUser.role !== "admin") return;
+    const supabase = createClient();
+    supabase
+      .from("password_reset_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .then(({ count }) => setPendingRecoveryCount(count ?? 0));
+  }, [currentUser.role]);
 
   return (
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-6">
@@ -39,7 +58,14 @@ export default function ManagePage() {
           <li key={card.href}>
             <Link href={card.href} className="flex items-center justify-between gap-4 px-4 py-4 active:opacity-70">
               <div>
-                <p className="text-[17px] font-semibold">{card.title}</p>
+                <p className="text-[17px] font-semibold">
+                  {card.title}
+                  {card.href === "/manage/recovery" && !!pendingRecoveryCount && (
+                    <span className="ml-2 inline-flex min-w-[20px] items-center justify-center rounded-full bg-danger px-1.5 py-0.5 text-xs font-semibold text-white">
+                      {pendingRecoveryCount}
+                    </span>
+                  )}
+                </p>
                 <p className="mt-0.5 text-[13px] text-muted">{card.description}</p>
               </div>
               <span className="shrink-0 text-muted" aria-hidden="true">
