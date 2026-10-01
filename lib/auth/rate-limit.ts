@@ -17,5 +17,8 @@ export function isRateLimited(key: string): boolean {
 }
 
 export function getClientKey(request: Request): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "unknown";
+  // x-forwarded-for는 client가 임의로 보낼 수 있어 그 값을 그대로 믿으면 rate limit을
+  // 헤더 값만 바꿔가며 우회할 수 있다. Netlify가 edge에서 직접 설정하는
+  // x-nf-client-connection-ip(client가 덮어쓸 수 없음)를 우선 사용한다.
+  return request.headers.get("x-nf-client-connection-ip") ?? "unknown";
 }

@@ -9,6 +9,12 @@ export interface ResolvedAccount {
   loginId: string;
 }
 
+// ilike는 %/_을 wildcard로 해석한다 — nickname을 패턴으로 그대로 넘기면 "두 값이 모두 정확히
+// 일치해야 한다"는 보장이 깨진다(예: "%"가 아무 닉네임이나 매칭). 리터럴 비교가 되도록 escape한다.
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 export async function resolveAccountByEmailAndNickname(
   email: string,
   nickname: string
@@ -21,7 +27,7 @@ export async function resolveAccountByEmailAndNickname(
   const { data: profile } = await admin
     .from("profiles")
     .select("user_id, login_id")
-    .ilike("nickname", normalizedNickname)
+    .ilike("nickname", escapeLikePattern(normalizedNickname))
     .eq("status", "active")
     .eq("onboarding_completed", true)
     .maybeSingle();
