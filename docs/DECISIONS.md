@@ -237,3 +237,8 @@
 - CSV 일괄 import script/browser upload UI는 이번 phase에서 만들지 않았다 — 초기 회원이 10명 내외라 `/manage/users/new` 화면으로 admin이 한 명씩 등록해도 충분하다고 판단했다(요구사항 38-43은 "유지한다"는 표현이라 필수 신규 구현이 아니라고 해석). 필요해지면 `lib/supabase/admin.ts`를 재사용하는 one-time server-only script로 추가할 수 있다.
 - `must_change_password`는 soft reminder로만 쓴다(하드 블락 없음) — `components/PasswordReminderBanner.tsx`가 `/my`를 제외한 모든 페이지 상단에 띠 배너로 표시하고, MY 화면의 "비밀번호" 변경 버튼도 강조한다. Admin이 "임시 비밀번호 재설정"을 쓰면 다시 true로 돌아간다.
 - `RouteGuard`의 onboarding-incomplete 분기(기존 OTP 테스트 중 생성된 `onboarding_completed=false` shell 계정)를 "완료 화면으로 보낸다" 대신 "로그인하지 않은 것으로 취급해 `/login`으로 보낸다"로 바꿨다 — 완료할 방법 자체가 없어진 계정을 위한 화면을 새로 만드는 대신, 더는 쓸 수 없는 상태로만 명확히 처리했다(요구사항 61: 삭제하지 않고 개수만 보고).
+
+2026-10-02 (Phase 4B-8, go-live smoke test)
+- production에서 신규 회원 생성(`POST /api/manage/users`, OTP 가입 경로 포함 모든 `auth.users` insert)이 전부 500으로 실패하는 버그를 발견했다. 원인: 0005에서 `profiles.login_id`를 nullable로 바꿔 `handle_new_user()`가 login_id 없이 "profile shell"을 insert하게 했지만, 0004의 `validate_login_id()` 트리거는 null을 빈 문자열로 취급해 무조건 예외를 던졌다(`validate_nickname()`은 이미 null early-return이 있어 같은 문제가 없었음). `supabase/migrations/0007_fix_login_id_null_trigger.sql`로 trigger에 동일한 null early-return을 추가해 수정, production에 즉시 적용했다.
+- `eslint.config.mjs`의 globalIgnores에 `.netlify/**`가 빠져 있어 `npm run lint`가 Netlify 빌드 산출물(번들된 JS)까지 검사해 759개의 가짜 에러를 보고했다. ignore 목록에 추가해 수정.
+- admin 계정 비밀번호를 분실한 상태로 테스트를 시작해, service_role key로 `auth.admin.updateUserById`를 직접 호출해 임시 비밀번호로 재설정했다(`must_change_password=true` 동반 설정) — 별도 recovery UI를 만들지 않고 1회성 운영 작업으로 처리했다.
