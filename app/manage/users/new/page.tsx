@@ -3,21 +3,55 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useAppData } from "@/lib/app-data-context";
+import { useNewMemberDraft, type DupState } from "@/lib/new-member-draft-context";
 import { PageHeader } from "@/components/PageHeader";
 import { ROLE_LABELS } from "@/lib/status";
 import type { UserRole } from "@/lib/types";
 
-type DupState = "idle" | "checking" | "available" | "taken";
-
 async function checkDuplicate(endpoint: string, key: "loginId" | "nickname", value: string): Promise<DupState> {
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ [key]: value }),
-  });
-  const body = await res.json().catch(() => null);
-  if (!res.ok || !body?.ok) return "idle";
-  return body.available ? "available" : "taken";
+  try {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [key]: value }),
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body?.ok) return "error";
+    return body.available ? "available" : "taken";
+  } catch {
+    return "error";
+  }
+}
+
+function ChevronDownIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.7}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="pointer-events-none absolute right-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function dupButtonLabel(state: DupState): string {
+  switch (state) {
+    case "checking":
+      return "확인 중…";
+    case "available":
+      return "확인 완료";
+    case "taken":
+    case "error":
+      return "다시 확인";
+    default:
+      return "중복 확인";
+  }
 }
 
 export default function NewUserPage() {
@@ -35,15 +69,9 @@ export default function NewUserPage() {
 }
 
 function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
-  const [email, setEmail] = useState("");
-  const [loginId, setLoginId] = useState("");
-  const [nickname, setNickname] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const { draft, setDraft, clearDraft } = useNewMemberDraft();
+  const { email, loginId, nickname, password, confirmPassword, role, loginIdDup, nicknameDup } = draft;
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<UserRole>("member");
-  const [loginIdDup, setLoginIdDup] = useState<DupState>("idle");
-  const [nicknameDup, setNicknameDup] = useState<DupState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<{ nickname: string; loginId: string; role: UserRole } | null>(null);
@@ -68,6 +96,7 @@ function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
       setError(body?.error ?? "회원 등록에 실패했어요. 다시 시도해 주세요.");
       return;
     }
+    clearDraft();
     setCreated({ nickname: body.nickname, loginId: body.loginId, role: body.role });
   };
 
@@ -95,14 +124,13 @@ function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
         <div className="flex gap-2">
           <Link
             href="/manage/users/new"
-            onClick={() => setCreated(null)}
-            className="flex-1 rounded-xl border border-border py-3 text-center text-sm font-medium text-muted"
+            className="flex-1 rounded-xl border border-border py-3 text-center text-sm font-medium text-muted transition-opacity active:scale-[0.98]"
           >
             회원 추가
           </Link>
           <Link
             href="/manage"
-            className="flex-1 rounded-xl bg-accent py-3 text-center text-sm font-semibold text-white"
+            className="flex-1 rounded-xl bg-accent py-3 text-center text-sm font-semibold text-white transition-opacity active:scale-[0.98]"
           >
             관리로 이동
           </Link>
@@ -121,8 +149,9 @@ function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => setDraft({ email: e.target.value })}
             placeholder="name@tanabe-pharma.com"
+            autoComplete="off"
             className="h-12 rounded-xl border border-border bg-background px-4 text-[15px] outline-none focus-visible:border-accent"
           />
         </label>
@@ -133,25 +162,26 @@ function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
             <input
               type="text"
               value={loginId}
-              onChange={(e) => {
-                setLoginId(e.target.value);
-                setLoginIdDup("idle");
-              }}
+              onChange={(e) => setDraft({ loginId: e.target.value, loginIdDup: "idle" })}
+              autoComplete="off"
               className="h-12 flex-1 rounded-xl border border-border bg-background px-4 text-[15px] outline-none focus-visible:border-accent"
             />
             <button
               type="button"
+              disabled={loginIdDup === "checking"}
+              aria-busy={loginIdDup === "checking"}
               onClick={async () => {
-                setLoginIdDup("checking");
-                setLoginIdDup(await checkDuplicate("/api/onboarding/check-login-id", "loginId", loginId));
+                setDraft({ loginIdDup: "checking" });
+                setDraft({ loginIdDup: await checkDuplicate("/api/onboarding/check-login-id", "loginId", loginId) });
               }}
-              className="shrink-0 rounded-xl border border-border px-4 text-sm font-medium text-muted"
+              className="w-24 shrink-0 rounded-xl border border-border px-3 text-sm font-medium text-muted transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
             >
-              중복 확인
+              {dupButtonLabel(loginIdDup)}
             </button>
           </div>
           {loginIdDup === "available" && <span className="text-xs text-success">사용할 수 있는 아이디예요.</span>}
-          {loginIdDup === "taken" && <span className="text-xs text-danger">이미 사용 중인 아이디예요.</span>}
+          {loginIdDup === "taken" && <span className="text-xs text-danger">이미 사용 중인 아이디입니다.</span>}
+          {loginIdDup === "error" && <span className="text-xs text-danger">확인하지 못했습니다. 다시 시도해 주세요.</span>}
         </div>
 
         <div className="flex flex-col gap-1.5 text-sm">
@@ -160,25 +190,26 @@ function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
             <input
               type="text"
               value={nickname}
-              onChange={(e) => {
-                setNickname(e.target.value);
-                setNicknameDup("idle");
-              }}
+              onChange={(e) => setDraft({ nickname: e.target.value, nicknameDup: "idle" })}
+              autoComplete="off"
               className="h-12 flex-1 rounded-xl border border-border bg-background px-4 text-[15px] outline-none focus-visible:border-accent"
             />
             <button
               type="button"
+              disabled={nicknameDup === "checking"}
+              aria-busy={nicknameDup === "checking"}
               onClick={async () => {
-                setNicknameDup("checking");
-                setNicknameDup(await checkDuplicate("/api/onboarding/check-nickname", "nickname", nickname));
+                setDraft({ nicknameDup: "checking" });
+                setDraft({ nicknameDup: await checkDuplicate("/api/onboarding/check-nickname", "nickname", nickname) });
               }}
-              className="shrink-0 rounded-xl border border-border px-4 text-sm font-medium text-muted"
+              className="w-24 shrink-0 rounded-xl border border-border px-3 text-sm font-medium text-muted transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
             >
-              중복 확인
+              {dupButtonLabel(nicknameDup)}
             </button>
           </div>
           {nicknameDup === "available" && <span className="text-xs text-success">사용할 수 있는 닉네임이에요.</span>}
-          {nicknameDup === "taken" && <span className="text-xs text-danger">이미 사용 중인 닉네임이에요.</span>}
+          {nicknameDup === "taken" && <span className="text-xs text-danger">이미 사용 중인 닉네임입니다.</span>}
+          {nicknameDup === "error" && <span className="text-xs text-danger">확인하지 못했습니다. 다시 시도해 주세요.</span>}
         </div>
 
         <label className="flex flex-col gap-1.5 text-sm">
@@ -187,13 +218,14 @@ function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
             <input
               type={showPassword ? "text" : "password"}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setDraft({ password: e.target.value })}
+              autoComplete="new-password"
               className="h-12 w-full rounded-xl border border-border bg-background px-4 pr-16 text-[15px] outline-none focus-visible:border-accent"
             />
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-2 top-0 flex h-full min-w-11 items-center justify-center text-xs font-medium text-muted"
+              className="absolute right-2 top-0 flex h-full min-w-11 items-center justify-center text-xs font-medium text-muted transition-transform duration-150 active:scale-[0.98]"
             >
               {showPassword ? "숨기기" : "보기"}
             </button>
@@ -205,7 +237,8 @@ function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
           <input
             type={showPassword ? "text" : "password"}
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={(e) => setDraft({ confirmPassword: e.target.value })}
+            autoComplete="new-password"
             className="h-12 rounded-xl border border-border bg-background px-4 text-[15px] outline-none focus-visible:border-accent"
           />
         </label>
@@ -213,17 +246,21 @@ function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
         <label className="flex flex-col gap-1.5 text-sm">
           <span className="font-medium">역할</span>
           {canAssignAnyRole ? (
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as UserRole)}
-              className="h-12 rounded-xl border border-border bg-background px-4 text-[15px]"
-            >
-              {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
-                <option key={r} value={r}>
-                  {ROLE_LABELS[r]}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                aria-label="역할"
+                value={role}
+                onChange={(e) => setDraft({ role: e.target.value as UserRole })}
+                className="h-12 w-full appearance-none rounded-xl border border-border bg-background pl-4 pr-10 text-[15px] outline-none focus-visible:border-accent"
+              >
+                {(Object.keys(ROLE_LABELS) as UserRole[]).map((r) => (
+                  <option key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </option>
+                ))}
+              </select>
+              <ChevronDownIcon />
+            </div>
           ) : (
             <p className="h-12 rounded-xl border border-border bg-surface-secondary px-4 text-[15px] leading-[48px] text-muted">
               {ROLE_LABELS.member}
@@ -240,7 +277,8 @@ function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
         <button
           type="submit"
           disabled={submitting}
-          className="mt-2 h-[50px] rounded-xl bg-accent text-[15px] font-semibold text-white shadow-elevated transition-opacity active:opacity-80 disabled:opacity-60"
+          aria-busy={submitting}
+          className="mt-2 h-[50px] rounded-xl bg-accent text-[15px] font-semibold text-white shadow-elevated transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
         >
           {submitting ? "등록 중…" : "회원 등록"}
         </button>
