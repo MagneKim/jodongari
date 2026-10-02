@@ -5,6 +5,7 @@
 - Phase 4B-8 완료: production go-live smoke test. 계정/핵심 플로우(기록→검토→승인→도감/EXP/통계)/권한(member·leader·admin)/모바일 3종 뷰포트/signup 안내/console·network 모두 정상. 발견한 신규 회원 생성 500 버그는 `0007_fix_login_id_null_trigger.sql`로 수정해 production 적용 완료.
 - Phase 4B-9 완료: SMTP 없는 account recovery. 로그인 상태 비밀번호 변경 단순화(현재 비밀번호 불필요), `/account-help`(아이디 찾기·비밀번호 재설정 요청), `/manage/recovery`(Admin 처리), `scripts/reset-user-password.ts`(owner-only emergency CLI). migration `0008_account_recovery.sql` production 적용 완료.
 - Phase 4B-14 완료(코드 구현 + migration production 적용, netlify 배포는 보류 — 아래 "다음" 참고): sighting 삭제(작성자/leader/admin) + 검토 반려(`revision` 상태 재사용, leaderNote 필수) + 수정 후 재제출(`/record?editId=`). migration `0009_sighting_delete_and_revision.sql` production 적용 완료. `npx tsc --noEmit`/`npm run lint`/`npm run build` 모두 통과.
+- Phase 4B-16 완료: review action alignment + app-wide alignment polish. `/review/[id]` 승인/반려 버튼을 좌측 승인(blue fill)/우측 반려(red fill) 동일 width/height로 통일하고, review·sighting 상세의 "탐조 기록 삭제"를 하단 중앙 정렬로 변경. 다른 주요 페이지(my/manage/admin/modal 등)는 이미 동일 패턴이라 변경 없음. `npx tsc --noEmit`/`npm run lint`/`npm run build` 통과, production에서 직접 로그인해 모바일(375/390/430)·데스크톱 뷰 확인 완료. netlify 배포 완료.
 - Netlify production: https://tpkr-jodongari.netlify.app
 
 ## 다음 — 사용자 직접 수행 필요

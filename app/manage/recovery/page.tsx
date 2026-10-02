@@ -19,17 +19,27 @@ export default function RecoveryRequestsPage() {
   const [supabase] = useState(() => createClient());
   const [requests, setRequests] = useState<ResetRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("password_reset_requests")
-      .select("id, created_at, user_id, profiles(nickname, login_id)")
+      .select(
+        "id, created_at, user_id, profiles!password_reset_requests_user_id_fkey(nickname, login_id)"
+      )
       .eq("status", "pending")
       .order("created_at", { ascending: true });
+    if (error) {
+      console.error("Failed to load recovery requests:", error);
+      setLoadError(true);
+      setIsLoading(false);
+      return;
+    }
+    setLoadError(false);
     setRequests(
-      ((data ?? []) as unknown as {
+      (data as unknown as {
         id: string;
         created_at: string;
         user_id: string;
@@ -60,10 +70,25 @@ export default function RecoveryRequestsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <PageHeader eyebrow="관리" title="비밀번호 재설정 요청" subtitle={`대기 중 ${requests.length}건`} />
+      <PageHeader
+        eyebrow="관리"
+        title="비밀번호 재설정 요청"
+        subtitle={loadError ? undefined : `대기 중 ${requests.length}건`}
+      />
 
       {isLoading ? (
         <p className="text-sm text-muted">불러오는 중…</p>
+      ) : loadError ? (
+        <div className="flex flex-col items-start gap-2 rounded-2xl border border-border bg-surface p-4 text-sm text-muted">
+          <p>요청을 불러오지 못했습니다.</p>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="rounded-full border border-border px-4 py-2 text-sm font-medium text-muted transition-colors hover:bg-background"
+          >
+            다시 시도
+          </button>
+        </div>
       ) : requests.length === 0 ? (
         <p className="rounded-2xl border border-border bg-surface p-4 text-sm text-muted">
           대기 중인 요청이 없습니다.
