@@ -144,7 +144,7 @@ function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
               aria-busy={loginIdDup === "checking"}
               onClick={async () => {
                 setDraft({ loginIdDup: "checking" });
-                setDraft({ loginIdDup: await checkDuplicate("/api/onboarding/check-login-id", "loginId", loginId) });
+                setDraft({ loginIdDup: await checkDuplicate("/api/manage/users/check-login-id", "loginId", loginId) });
               }}
               className="w-24 shrink-0 rounded-xl border border-border px-3 text-sm font-medium text-muted transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
             >
@@ -172,7 +172,7 @@ function NewUserForm({ canAssignAnyRole }: { canAssignAnyRole: boolean }) {
               aria-busy={nicknameDup === "checking"}
               onClick={async () => {
                 setDraft({ nicknameDup: "checking" });
-                setDraft({ nicknameDup: await checkDuplicate("/api/onboarding/check-nickname", "nickname", nickname) });
+                setDraft({ nicknameDup: await checkDuplicate("/api/manage/users/check-nickname", "nickname", nickname) });
               }}
               className="w-24 shrink-0 rounded-xl border border-border px-3 text-sm font-medium text-muted transition-transform duration-150 active:scale-[0.98] disabled:opacity-60"
             >

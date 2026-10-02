@@ -69,7 +69,7 @@ export default function MyPage() {
           value={currentUser.nickname}
           maxLength={12}
           validate={validateNickname}
-          dupEndpoint="/api/onboarding/check-nickname"
+          dupEndpoint="/api/profile/check-nickname"
           dupKey="nickname"
           onSave={updateNickname}
         />
@@ -78,7 +78,7 @@ export default function MyPage() {
           value={currentUser.loginId}
           maxLength={20}
           validate={validateLoginId}
-          dupEndpoint="/api/onboarding/check-login-id"
+          dupEndpoint="/api/profile/check-login-id"
           dupKey="loginId"
           onSave={updateLoginId}
         />
