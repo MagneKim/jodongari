@@ -204,14 +204,16 @@ export default function SightingDetailPage() {
 
       {canDelete && (
         <section className="border-t border-separator pt-5">
-          <button
-            type="button"
-            onClick={() => setConfirmDeleteOpen(true)}
-            className="text-sm font-medium text-danger"
-          >
-            탐조 기록 삭제
-          </button>
-          {deleteError && <p className="mt-2 text-xs text-danger">{deleteError}</p>}
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => setConfirmDeleteOpen(true)}
+              className="text-sm font-medium text-danger"
+            >
+              탐조 기록 삭제
+            </button>
+          </div>
+          {deleteError && <p className="mt-2 text-center text-xs text-danger">{deleteError}</p>}
         </section>
       )}
 

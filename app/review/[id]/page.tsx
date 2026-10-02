@@ -207,33 +207,35 @@ export default function ReviewDetailPage() {
         />
         {approveError && <p className="mt-2 text-sm text-danger">{approveError}</p>}
         {rejectError && <p className="mt-2 text-sm text-danger">{rejectError}</p>}
-        <div className="mt-3 flex gap-2">
-          <button
-            onClick={() => setRejectOpen(true)}
-            disabled={approving}
-            className="min-h-[44px] flex-[2] rounded-full border border-danger/40 py-3 text-sm font-medium text-danger disabled:opacity-40"
-          >
-            반려
-          </button>
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <button
             onClick={handleApprove}
             disabled={speciesIds.length === 0 || approving}
-            className="min-h-[44px] flex-[3] rounded-full bg-accent py-3 text-sm font-medium text-white shadow-elevated disabled:opacity-40 disabled:shadow-none"
+            className="min-h-[44px] rounded-full bg-accent py-3 text-sm font-medium text-white shadow-elevated transition-transform active:scale-[0.98] disabled:opacity-40 disabled:shadow-none"
           >
             {approving ? "승인 중…" : "승인"}
+          </button>
+          <button
+            onClick={() => setRejectOpen(true)}
+            disabled={approving}
+            className="min-h-[44px] rounded-full bg-danger py-3 text-sm font-medium text-white transition-transform active:scale-[0.98] disabled:opacity-40"
+          >
+            반려
           </button>
         </div>
       </section>
 
       <section className="border-t border-separator pt-5">
-        <button
-          type="button"
-          onClick={() => setConfirmDeleteOpen(true)}
-          className="text-sm font-medium text-danger"
-        >
-          탐조 기록 삭제
-        </button>
-        {deleteError && <p className="mt-2 text-xs text-danger">{deleteError}</p>}
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={() => setConfirmDeleteOpen(true)}
+            className="text-sm font-medium text-danger"
+          >
+            탐조 기록 삭제
+          </button>
+        </div>
+        {deleteError && <p className="mt-2 text-center text-xs text-danger">{deleteError}</p>}
       </section>
 
       {rejectOpen && (
@@ -267,7 +269,7 @@ export default function ReviewDetailPage() {
                 disabled={rejectReason.trim().length === 0 || rejecting}
                 className="flex-1 rounded-full bg-danger py-3 text-sm font-medium text-white disabled:opacity-40"
               >
-                {rejecting ? "처리 중…" : "반려하기"}
+                {rejecting ? "반려 중…" : "반려하기"}
               </button>
             </div>
           </div>
