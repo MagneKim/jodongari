@@ -3,8 +3,9 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "./supabase/auth-provider";
 import type { UserRole } from "./types";
+import type { DupState } from "./duplicate-check";
 
-export type DupState = "idle" | "checking" | "available" | "taken" | "error";
+export type { DupState };
 
 export interface NewMemberDraft {
   email: string;

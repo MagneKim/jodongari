@@ -5,11 +5,11 @@ import { createClient } from "./supabase/client";
 import { useAuth } from "./supabase/auth-provider";
 import { mapProfileRow, mapSightingRow, type RawSightingRow } from "./supabase/mappers";
 import { validateLoginId } from "./auth/login-id";
+import { validateNickname } from "./auth/nickname";
 import type { BirdSpecies, NewSightingInput, Sighting, User, UserRole, UserStatus } from "./types";
 import birdsData from "@/data/birds.json";
 
 const BIRDS = birdsData as BirdSpecies[];
-const NICKNAME_MAX_LENGTH = 20;
 const SIGNED_URL_TTL_SECONDS = 3600;
 const EMPTY_USER: User = {
   id: "",
@@ -277,17 +277,21 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
   };
 
   const updateNickname: AppDataContextValue["updateNickname"] = async (nickname) => {
-    const trimmed = nickname.trim();
-    if (!trimmed) return { ok: false, error: "닉네임을 입력해 주세요." };
-    if (trimmed.length > NICKNAME_MAX_LENGTH) {
-      return { ok: false, error: `닉네임은 ${NICKNAME_MAX_LENGTH}자 이내로 입력해 주세요.` };
-    }
+    const validation = validateNickname(nickname);
+    if (!validation.ok) return { ok: false, error: validation.error };
     if (!authUser) return { ok: false, error: "로그인이 필요합니다." };
 
-    const { error } = await supabase.from("profiles").update({ nickname: trimmed }).eq("user_id", authUser.id);
-    if (error) return { ok: false, error: "닉네임 변경에 실패했어요. 다시 시도해 주세요." };
+    // .select().single()로 실제 변경된 row를 돌려받아야만 성공 처리한다 — RLS/trigger가 조용히 0 rows를
+    // 반환하는 경우(에러 없이 매칭 row가 없는 UPDATE) 저장 성공으로 오판하지 않기 위함.
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ nickname: validation.value })
+      .eq("user_id", authUser.id)
+      .select("nickname")
+      .single();
+    if (error || !data) return { ok: false, error: error?.message || "닉네임 변경에 실패했어요. 다시 시도해 주세요." };
 
-    setUsers((prev) => prev.map((u) => (u.id === authUser.id ? { ...u, nickname: trimmed } : u)));
+    setUsers((prev) => prev.map((u) => (u.id === authUser.id ? { ...u, nickname: data.nickname ?? "" } : u)));
     return { ok: true };
   };
 
@@ -296,10 +300,15 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     if (!validation.ok) return { ok: false, error: validation.error };
     if (!authUser) return { ok: false, error: "로그인이 필요합니다." };
 
-    const { error } = await supabase.from("profiles").update({ login_id: validation.value }).eq("user_id", authUser.id);
-    if (error) return { ok: false, error: error.message || "아이디 변경에 실패했어요." };
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ login_id: validation.value })
+      .eq("user_id", authUser.id)
+      .select("login_id")
+      .single();
+    if (error || !data) return { ok: false, error: error?.message || "아이디 변경에 실패했어요." };
 
-    setUsers((prev) => prev.map((u) => (u.id === authUser.id ? { ...u, loginId: validation.value } : u)));
+    setUsers((prev) => prev.map((u) => (u.id === authUser.id ? { ...u, loginId: data.login_id ?? "" } : u)));
     return { ok: true };
   };
 

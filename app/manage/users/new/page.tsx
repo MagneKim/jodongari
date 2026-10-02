@@ -3,25 +3,11 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useAppData } from "@/lib/app-data-context";
-import { useNewMemberDraft, type DupState } from "@/lib/new-member-draft-context";
+import { useNewMemberDraft } from "@/lib/new-member-draft-context";
+import { checkDuplicate, dupButtonLabel } from "@/lib/duplicate-check";
 import { PageHeader } from "@/components/PageHeader";
 import { ROLE_LABELS } from "@/lib/status";
 import type { UserRole } from "@/lib/types";
-
-async function checkDuplicate(endpoint: string, key: "loginId" | "nickname", value: string): Promise<DupState> {
-  try {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ [key]: value }),
-    });
-    const body = await res.json().catch(() => null);
-    if (!res.ok || !body?.ok) return "error";
-    return body.available ? "available" : "taken";
-  } catch {
-    return "error";
-  }
-}
 
 function ChevronDownIcon() {
   return (
@@ -38,20 +24,6 @@ function ChevronDownIcon() {
       <path d="m6 9 6 6 6-6" />
     </svg>
   );
-}
-
-function dupButtonLabel(state: DupState): string {
-  switch (state) {
-    case "checking":
-      return "확인 중…";
-    case "available":
-      return "확인 완료";
-    case "taken":
-    case "error":
-      return "다시 확인";
-    default:
-      return "중복 확인";
-  }
 }
 
 export default function NewUserPage() {
