@@ -4,6 +4,7 @@
 - Phase 4B-7 완료: public self-signup 폐지, 초대제 전환. admin/leader가 `/manage/users/new`(→ `POST /api/manage/users`)로 신규 회원을 직접 생성한다. SMTP 없이 운영 — admin의 "임시 비밀번호 재설정"이 비밀번호 분실 fallback.
 - Phase 4B-8 완료: production go-live smoke test. 계정/핵심 플로우(기록→검토→승인→도감/EXP/통계)/권한(member·leader·admin)/모바일 3종 뷰포트/signup 안내/console·network 모두 정상. 발견한 신규 회원 생성 500 버그는 `0007_fix_login_id_null_trigger.sql`로 수정해 production 적용 완료.
 - Phase 4B-9 완료: SMTP 없는 account recovery. 로그인 상태 비밀번호 변경 단순화(현재 비밀번호 불필요), `/account-help`(아이디 찾기·비밀번호 재설정 요청), `/manage/recovery`(Admin 처리), `scripts/reset-user-password.ts`(owner-only emergency CLI). migration `0008_account_recovery.sql` production 적용 완료.
+- Phase 4B-14 완료(코드 구현 + migration production 적용, netlify 배포는 보류 — 아래 "다음" 참고): sighting 삭제(작성자/leader/admin) + 검토 반려(`revision` 상태 재사용, leaderNote 필수) + 수정 후 재제출(`/record?editId=`). migration `0009_sighting_delete_and_revision.sql` production 적용 완료. `npx tsc --noEmit`/`npm run lint`/`npm run build` 모두 통과.
 - Netlify production: https://tpkr-jodongari.netlify.app
 
 ## 다음 — 사용자 직접 수행 필요

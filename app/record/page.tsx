@@ -10,10 +10,19 @@ import { MediaSourcePicker } from "@/components/MediaSourcePicker";
 
 export default function RecordPage() {
   const router = useRouter();
-  const { currentUser, users, birds, submitSighting } = useAppData();
+  const { currentUser, users, birds, sightings, submitSighting, resubmitSighting } = useAppData();
   const mediaTriggerRef = useRef<HTMLButtonElement>(null);
   const mediaRef = useRef<SightingMedia[]>([]);
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+
+  // revision 상태 본인 기록을 "수정하고 다시 제출"로 들어온 경우 (/record?editId=<id>).
+  const [editId] = useState(
+    () => (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("editId")) || null
+  );
+  const editingSighting = editId
+    ? sightings.find((s) => s.id === editId && s.authorId === currentUser.id && s.status === "revision")
+    : null;
+  const prefilledRef = useRef(false);
 
   const [date, setDate] = useState(() => toLocalISODate(new Date()));
   const [location, setLocation] = useState("");
@@ -26,6 +35,18 @@ export default function RecordPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // AppDataProvider가 비동기로 로딩되므로 editingSighting이 나중에 채워질 수 있다 — 처음 한 번만 prefill.
+  useEffect(() => {
+    if (!editingSighting || prefilledRef.current) return;
+    prefilledRef.current = true;
+    setDate(editingSighting.date);
+    setLocation(editingSighting.location);
+    setMemo(editingSighting.memo);
+    setSpeciesIds(editingSighting.speciesIds);
+    setParticipantUserIds(editingSighting.participantUserIds);
+    setMedia(editingSighting.media);
+  }, [editingSighting]);
 
   useEffect(() => {
     mediaRef.current = media;
@@ -108,7 +129,9 @@ export default function RecordPage() {
     if (!canSubmit || submitting) return;
     setSubmitting(true);
     setSubmitError(null);
-    const result = await submitSighting({ date, location, memo, speciesIds, media, participantUserIds });
+    const result = editingSighting
+      ? await resubmitSighting(editingSighting.id, { date, location, memo, speciesIds, media, participantUserIds })
+      : await submitSighting({ date, location, memo, speciesIds, media, participantUserIds });
     setSubmitting(false);
     if (!result.ok) {
       setSubmitError(result.error);
@@ -125,10 +148,10 @@ export default function RecordPage() {
         </div>
         <p className="text-base font-medium">탐조 기록이 회장 검토를 기다리고 있어요.</p>
         <button
-          onClick={() => router.push("/sightings")}
+          onClick={() => router.push(editId ? `/sightings/${editId}` : "/sightings")}
           className="mt-2 rounded-full bg-accent px-6 py-2.5 text-sm font-medium text-white"
         >
-          탐조 화면으로
+          {editId ? "기록으로 돌아가기" : "탐조 화면으로"}
         </button>
       </div>
     );
@@ -137,12 +160,29 @@ export default function RecordPage() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 lg:max-w-5xl">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-wide text-accent">탐조 기록</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+          {editingSighting ? "기록 수정" : "탐조 기록"}
+        </p>
         <h1 className="mt-1 text-[32px] font-bold leading-[1.1] tracking-[-0.03em] sm:text-[40px]">
-          오늘 본 것을
-          <br />
-          남겨보세요.
+          {editingSighting ? (
+            <>
+              수정해서
+              <br />
+              다시 제출하세요.
+            </>
+          ) : (
+            <>
+              오늘 본 것을
+              <br />
+              남겨보세요.
+            </>
+          )}
         </h1>
+        {editingSighting?.leaderNote && (
+          <p className="mt-3 rounded-lg bg-surface-secondary p-3 text-sm text-muted">
+            검토 의견: {editingSighting.leaderNote}
+          </p>
+        )}
       </header>
 
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-10">
@@ -307,7 +347,7 @@ export default function RecordPage() {
             disabled={!canSubmit || submitting}
             className="rounded-full bg-accent py-3.5 text-sm font-medium text-white shadow-elevated transition-opacity disabled:opacity-40 disabled:shadow-none"
           >
-            {submitting ? "저장 중…" : "검토 요청"}
+            {submitting ? "저장 중…" : editingSighting ? "다시 제출" : "검토 요청"}
           </button>
         </div>
 

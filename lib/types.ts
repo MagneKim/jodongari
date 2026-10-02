@@ -19,7 +19,7 @@ export interface BirdSpecies {
   familyName?: string;
 }
 
-export type SightingStatus = "draft" | "pending" | "approved";
+export type SightingStatus = "draft" | "pending" | "approved" | "revision";
 
 export interface Comment {
   id: string;

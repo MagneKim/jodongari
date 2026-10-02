@@ -28,6 +28,9 @@ const SCOPES: [SightingScope, string][] = [
 
 export default function SightingsPage() {
   const { currentUser, users, sightings, birds } = useAppData();
+  const [deleted] = useState(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("deleted") === "1"
+  );
   const [scope, setScope] = useState<SightingScope>("mine");
   const [preset, setPreset] = useState<PeriodPreset>("all");
   const [customStart, setCustomStart] = useState("");
@@ -60,6 +63,12 @@ export default function SightingsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 lg:max-w-[900px]">
+      {deleted && (
+        <p className="rounded-xl bg-surface-secondary px-4 py-3 text-sm text-muted">
+          탐조 기록이 삭제되었습니다.
+        </p>
+      )}
+
       <header className="flex items-end justify-between gap-4">
         <div>
           <h1 className="text-[32px] font-bold tracking-[-0.03em] sm:text-[40px]">탐조</h1>

@@ -36,6 +36,9 @@ interface AppDataContextValue {
   sightings: Sighting[];
   submitSighting: (input: Omit<NewSightingInput, "authorId">) => Promise<ActionResult>;
   approveSighting: (sightingId: string, speciesIds: string[], leaderNote?: string) => Promise<ActionResult>;
+  rejectSighting: (sightingId: string, leaderNote: string) => Promise<ActionResult>;
+  resubmitSighting: (sightingId: string, input: Omit<NewSightingInput, "authorId">) => Promise<ActionResult>;
+  deleteSighting: (sightingId: string) => Promise<ActionResult>;
   toggleLike: (sightingId: string) => Promise<void>;
   addComment: (sightingId: string, text: string) => Promise<ActionResult>;
   updateNickname: (nickname: string) => Promise<ActionResult>;
@@ -219,6 +222,110 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   };
 
+  // pending → revision. 반려 사유(leaderNote)는 필수 — 기존 approved 기록에는 적용하지 않는다(status='pending' 가드).
+  const rejectSighting: AppDataContextValue["rejectSighting"] = async (sightingId, leaderNote) => {
+    if (!authUser) return { ok: false, error: "로그인이 필요합니다." };
+    const trimmed = leaderNote.trim();
+    if (!trimmed) return { ok: false, error: "반려 사유를 입력해 주세요." };
+
+    const { error } = await supabase
+      .from("sightings")
+      .update({ status: "revision", leader_note: trimmed })
+      .eq("id", sightingId)
+      .eq("status", "pending");
+    if (error) return { ok: false, error: "반려 처리에 실패했어요. 다시 시도해 주세요." };
+
+    await loadSightings();
+    return { ok: true };
+  };
+
+  // revision 상태 작성자의 수정 재제출. participants/species는 전체 교체, leaderNote는 새 review cycle을 위해 비운다.
+  const resubmitSighting: AppDataContextValue["resubmitSighting"] = async (sightingId, input) => {
+    if (!authUser) return { ok: false, error: "로그인이 필요합니다." };
+
+    const { error: updateError } = await supabase
+      .from("sightings")
+      .update({
+        observed_date: input.date,
+        place: input.location,
+        note: input.memo,
+        status: "pending",
+        leader_note: null,
+      })
+      .eq("id", sightingId);
+    if (updateError) return { ok: false, error: "재제출에 실패했어요. 다시 시도해 주세요." };
+
+    await supabase.from("sighting_participants").delete().eq("sighting_id", sightingId);
+    const participantIds = input.participantUserIds.filter((id) => id !== authUser.id);
+    if (participantIds.length > 0) {
+      const { error } = await supabase
+        .from("sighting_participants")
+        .insert(participantIds.map((user_id) => ({ sighting_id: sightingId, user_id })));
+      if (error) return { ok: false, error: "함께한 멤버 저장에 실패했어요. 다시 시도해 주세요." };
+    }
+
+    await supabase.from("sighting_species").delete().eq("sighting_id", sightingId);
+    if (input.speciesIds.length > 0) {
+      const { error } = await supabase
+        .from("sighting_species")
+        .insert(input.speciesIds.map((species_id) => ({ sighting_id: sightingId, species_id })));
+      if (error) return { ok: false, error: "종 정보 저장에 실패했어요. 다시 시도해 주세요." };
+    }
+
+    let mediaFailed = false;
+    for (let i = 0; i < input.media.length; i++) {
+      const item = input.media[i];
+      if (!item.blob) continue; // 기존에 올라간 media는 blob이 없다 — 재업로드하지 않는다.
+      const storagePath = `${authUser.id}/${sightingId}/${crypto.randomUUID()}-${safeFileName(item.name)}`;
+      const { error: uploadError } = await supabase.storage
+        .from("sighting-media")
+        .upload(storagePath, item.blob, { contentType: item.mimeType });
+      if (uploadError) {
+        mediaFailed = true;
+        continue;
+      }
+      const { error: mediaRowError } = await supabase.from("sighting_media").insert({
+        sighting_id: sightingId,
+        type: item.type,
+        storage_path: storagePath,
+        mime_type: item.mimeType,
+        original_name: item.name,
+        size_bytes: item.size,
+        sort_order: i,
+      });
+      if (mediaRowError) mediaFailed = true;
+    }
+
+    await loadSightings();
+    return mediaFailed
+      ? { ok: false, error: "재제출됐지만 일부 미디어 업로드에 실패했어요." }
+      : { ok: true };
+  };
+
+  // sighting 삭제. storage object는 DB cascade로 지워지지 않으므로 row 삭제 전에 path를 확보해 별도로 지운다.
+  // storage 삭제 실패는 DB 삭제를 롤백하지 않는다(완전한 transaction이 아님) — server log만 남긴다.
+  const deleteSighting: AppDataContextValue["deleteSighting"] = async (sightingId) => {
+    if (!authUser) return { ok: false, error: "로그인이 필요합니다." };
+
+    const { data: mediaRows } = await supabase
+      .from("sighting_media")
+      .select("storage_path")
+      .eq("sighting_id", sightingId);
+
+    const { error } = await supabase.from("sightings").delete().eq("id", sightingId);
+    if (error) return { ok: false, error: "삭제에 실패했어요. 다시 시도해 주세요." };
+
+    const paths = (mediaRows ?? []).map((r) => r.storage_path);
+    if (paths.length > 0) {
+      const { error: storageError } = await supabase.storage.from("sighting-media").remove(paths);
+      // ponytail: storage cleanup 실패는 orphan 파일로 남고 재시도 로직 없음 — 운영 중 발견 시 수동 정리.
+      if (storageError) console.error(`[deleteSighting] storage cleanup failed for ${sightingId}`, storageError);
+    }
+
+    setSightings((prev) => prev.filter((s) => s.id !== sightingId));
+    return { ok: true };
+  };
+
   const toggleLike: AppDataContextValue["toggleLike"] = async (sightingId) => {
     if (!authUser) return;
     const uid = authUser.id;
@@ -366,6 +473,9 @@ export function AppDataProvider({ children }: { children: ReactNode }) {
     sightings,
     submitSighting,
     approveSighting,
+    rejectSighting,
+    resubmitSighting,
+    deleteSighting,
     toggleLike,
     addComment,
     updateNickname,

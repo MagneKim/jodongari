@@ -1,19 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAppData } from "@/lib/app-data-context";
 import { isVisibleInAllScope } from "@/lib/sighting-access";
 import { STATUS_BADGE_CLASSES, STATUS_LABELS } from "@/lib/status";
 import { MediaViewer } from "@/components/MediaViewer";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { formatShortKoreanDate } from "@/lib/period";
 
 export default function SightingDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { currentUser, users, sightings, birds, toggleLike, addComment } = useAppData();
+  const router = useRouter();
+  const { currentUser, users, sightings, birds, toggleLike, addComment, deleteSighting } = useAppData();
   const [draft, setDraft] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const sighting = sightings.find((s) => s.id === id);
   const canView = sighting ? isVisibleInAllScope(sighting, currentUser.id) : false;
@@ -32,6 +37,43 @@ export default function SightingDetailPage() {
   const authorName = (uid: string) => users.find((u) => u.id === uid)?.nickname ?? uid;
   const speciesName = (sid: string) => birds.find((b) => b.id === sid)?.koreanName ?? sid;
   const liked = sighting.likedBy.includes(currentUser.id);
+
+  const isAuthor = sighting.authorId === currentUser.id;
+  const isReviewer = currentUser.role === "leader" || currentUser.role === "admin";
+  const canDelete = isAuthor || isReviewer;
+  const canResubmit = isAuthor && sighting.status === "revision";
+  const hasParticipants = sighting.participantUserIds.length > 0;
+
+  const deleteCopy = (() => {
+    if (sighting.status === "approved") {
+      return {
+        title: "승인된 탐조 기록을 삭제할까요?",
+        description:
+          "이 기록을 삭제하면 작성자와 참여자의 경험치,\n도감 및 활동 통계가 변경될 수 있습니다.\n삭제한 기록은 복구할 수 없습니다.",
+      };
+    }
+    const base = "삭제한 기록은 복구할 수 없습니다.";
+    return {
+      title: "탐조 기록을 삭제할까요?",
+      description: hasParticipants
+        ? `이 기록에는 함께 탐조한 멤버가 포함되어 있습니다.\n삭제하면 해당 멤버의 경험치와 도감에도 영향을 줄 수 있습니다.\n${base}`
+        : base,
+    };
+  })();
+
+  const handleDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const result = await deleteSighting(sighting.id);
+    setDeleting(false);
+    if (!result.ok) {
+      setDeleteError(result.error);
+      setConfirmDeleteOpen(false);
+      return;
+    }
+    router.push("/sightings?deleted=1");
+  };
 
   const submitComment = async () => {
     if (!draft.trim()) return;
@@ -98,7 +140,19 @@ export default function SightingDetailPage() {
       )}
 
       {sighting.leaderNote && (
-        <p className="rounded-lg bg-surface-secondary p-3 text-sm text-muted">회장 메모: {sighting.leaderNote}</p>
+        <p className="rounded-lg bg-surface-secondary p-3 text-sm text-muted">
+          {sighting.status === "revision" ? "검토 의견: " : "회장 메모: "}
+          {sighting.leaderNote}
+        </p>
+      )}
+
+      {canResubmit && (
+        <Link
+          href={`/record?editId=${sighting.id}`}
+          className="rounded-full bg-accent py-3 text-center text-sm font-medium text-white shadow-soft"
+        >
+          수정하고 다시 제출
+        </Link>
       )}
 
       <section className="border-t border-separator pt-5">
@@ -147,6 +201,31 @@ export default function SightingDetailPage() {
           {commentError && <p className="text-xs text-danger">{commentError}</p>}
         </div>
       </section>
+
+      {canDelete && (
+        <section className="border-t border-separator pt-5">
+          <button
+            type="button"
+            onClick={() => setConfirmDeleteOpen(true)}
+            className="text-sm font-medium text-danger"
+          >
+            탐조 기록 삭제
+          </button>
+          {deleteError && <p className="mt-2 text-xs text-danger">{deleteError}</p>}
+        </section>
+      )}
+
+      {confirmDeleteOpen && (
+        <ConfirmDialog
+          title={deleteCopy.title}
+          description={deleteCopy.description}
+          confirmLabel="삭제"
+          destructive
+          pending={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDeleteOpen(false)}
+        />
+      )}
     </div>
   );
 }

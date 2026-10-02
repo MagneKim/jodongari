@@ -155,7 +155,28 @@ lib/app-data-context.tsx — Supabase 기반 AppDataProvider. sightings는 parti
 supabase/migrations/0001_init.sql — profiles/sightings/sighting_participants/sighting_species/sighting_media/
                                       sighting_likes/sighting_comments 테이블 + RLS policy + trigger + storage bucket/policy
                                       + updated_at 자동 갱신 trigger + anon RPC 직접 호출 차단 (Phase 4A audit로 추가)
+supabase/migrations/0009_sighting_delete_and_revision.sql — sightings.status에 'revision'(반려) 추가,
+                                      sightings_delete policy(author 또는 leader/admin), sighting-media storage
+                                      delete policy에 is_reviewer() 추가
 ```
+
+## Sighting 삭제 / 반려 (Phase 4B-14)
+
+```text
+lifecycle: draft → pending → approved
+                      ↓ (leader/admin 반려, leaderNote 필수)
+                    revision → (작성자 수정 /record?editId=<id>) → pending
+
+AppDataProvider.deleteSighting   — author 또는 leader/admin. sighting row delete(RLS로 서버에서 재검증) →
+                                     child row는 기존 on delete cascade로 자동 삭제 → storage_path는 row 삭제
+                                     "전에" 조회해두고 삭제 "후" storage에서 제거(실패해도 DB delete는 유지, log만).
+AppDataProvider.rejectSighting   — pending → revision, leader_note(반려 사유) 필수.
+AppDataProvider.resubmitSighting — revision 작성자가 /record?editId=<id>로 수정 후 재제출. participants/species는
+                                     delete-then-insert로 전체 교체, 기존 media는 그대로 두고 새 media만 업로드.
+```
+
+EXP(`lib/exp.ts`)/도감(`lib/encyclopedia.ts`)은 매 호출마다 현재 `sightings` 배열에서 처음부터 다시 계산되는
+순수 함수라 삭제 후 별도 재계산 로직이 필요 없다 — `sightings` state에서 해당 row가 빠지면 자동으로 반영된다.
 
 - bird master(597종)는 이 schema에 포함하지 않는다. `sighting_species.species_id`가 `data/birds.json`의 `bird-<KTSN>` id를 FK 없이 그대로 참조한다.
 - EXP(`lib/exp.ts`)/개인 도감(`lib/encyclopedia.ts`)/`isContributor`(`lib/types.ts`)/`isVisibleInAllScope`(`lib/sighting-access.ts`)는 모두 `Sighting[]`을 입력으로 받는 순수 함수이며, Supabase 연결 후에도 무변경으로 재사용되고 있다.

@@ -268,3 +268,11 @@
 - production DB에 대해 두 endpoint의 쿼리를 직접 SQL로 재현해 검증했다: manage 쪽은 `chem_mg`/기존 멤버 `login_id`·`nickname`이 모두 count=1(taken), 존재하지 않는 값은 count=0(available). profile 쪽은 chem_mg 본인 기준 자기 값은 count=0(available/본인), 다른 사용자 값은 count=1(taken) — 요구된 semantics와 정확히 일치.
 - `/api/manage/users`(실제 회원 생성)는 이미 전체 `profiles` 대상 중복 재검증(`.ilike(...)`, exclusion 없음)을 하고 있어 변경하지 않았다 — DB uniqueness의 최종 방어는 그대로 trigger/unique index.
 - 별도 test runner가 이 repo에 없어(jest/vitest 등 미도입) 새 테스트 프레임워크를 들여오지 않았다 — 대신 production DB에 대한 직접 SQL 재현으로 regression을 검증했다. test runner가 이미 있는 시점이 되면 이 duplicate semantics를 단위 테스트로 옮길 수 있다.
+
+2026-10-02 (Phase 4B-14, sighting 삭제 + 반려)
+- 새 `rejected` status나 별도 DELETE API route를 만들지 않았다. 반려는 기존 `revision`(check constraint에 추가)을 재사용하고, 삭제는 기존 패턴(`approveSighting`과 동일하게 client supabase-js가 RLS 정책으로 직접 보호됨)을 그대로 따랐다 — 이 repo는 이미 모든 sighting mutation을 이 방식으로 처리하고 있어 새 API route를 추가하는 게 오히려 비일관적이었다.
+- `0009_sighting_delete_and_revision.sql`: `sightings_status_check`에 `revision` 추가, `sightings_delete` policy(author 또는 leader/admin), `sighting_media_storage_delete` policy에 `is_reviewer()` 추가(다른 사람 기록을 지우는 leader/admin이 그 media storage object도 지울 수 있어야 함). 나머지 child table(`sighting_participants`/`species`/`media`/`likes`/`comments`)은 0001부터 이미 `on delete cascade`라 추가 작업이 필요 없었다.
+- Storage object 삭제는 DB cascade 대상이 아니므로 `deleteSighting`이 sighting row를 지우기 **전에** `sighting_media.storage_path`를 먼저 조회해두고, row 삭제 성공 후 storage에서 지운다. storage 삭제가 실패해도 DB 삭제를 롤백하는 복잡한 트랜잭션은 만들지 않고 `console.error`만 남긴다(ponytail 주석, orphan 발생 시 수동 정리).
+- EXP/도감/통계는 원래부터 `Sighting[]` 전체에서 매번 derived 계산되는 순수 함수(`lib/exp.ts`/`lib/encyclopedia.ts`)라, 삭제 후 `sightings` state에서 해당 row만 제거하면 재계산이 자동으로 따라온다 — "삭제 시 EXP 차감 로직"을 별도로 만들 필요가 전혀 없었다(요구사항이 명시적으로 금지한 패턴과도 일치).
+- "수정 후 재제출"(revision → 수정 → pending)은 기존 `/record` 폼을 재사용했다(`?editId=<id>` query, 새 페이지를 만들지 않음). 새로 추가한 `resubmitSighting`은 participants/species를 delete-then-insert로 전체 교체하고(기존 `submitSighting`과 동일 패턴), **기존에 업로드된 media는 건드리지 않는다** — media 배열 중 `blob`이 있는(새로 추가된) 항목만 업로드한다. 재제출 화면에서 기존 미디어 삭제는 이번 phase에서 지원하지 않는다(ponytail: 범위 축소, storage 정리까지 포함한 media 편집이 필요해지면 추가).
+- review 화면의 반려는 `leader_note`를 재사용했다(새 column 없음), 반려 사유 공란은 버튼을 disabled로 막는다. 승인된 기록에는 반려 버튼 자체가 없다(`/review/[id]`가 `status==='pending'`만 조회하므로 approved는 애초에 이 화면에 들어오지 않음).

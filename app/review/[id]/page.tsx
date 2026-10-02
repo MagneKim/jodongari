@@ -5,12 +5,13 @@ import { useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAppData } from "@/lib/app-data-context";
 import { MediaViewer } from "@/components/MediaViewer";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { formatShortKoreanDate } from "@/lib/period";
 
 export default function ReviewDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { currentUser, users, sightings, birds, approveSighting } = useAppData();
+  const { currentUser, users, sightings, birds, approveSighting, rejectSighting, deleteSighting } = useAppData();
 
   const sighting = sightings.find((s) => s.id === id && s.status === "pending");
 
@@ -19,6 +20,13 @@ export default function ReviewDetailPage() {
   const [note, setNote] = useState("");
   const [approveError, setApproveError] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectError, setRejectError] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const searchResults = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -68,6 +76,33 @@ export default function ReviewDetailPage() {
     setApproving(false);
     if (!result.ok) {
       setApproveError(result.error);
+      return;
+    }
+    router.push("/review");
+  };
+
+  const handleReject = async () => {
+    if (rejecting) return;
+    setRejecting(true);
+    setRejectError(null);
+    const result = await rejectSighting(sighting.id, rejectReason);
+    setRejecting(false);
+    if (!result.ok) {
+      setRejectError(result.error);
+      return;
+    }
+    router.push("/review");
+  };
+
+  const handleDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const result = await deleteSighting(sighting.id);
+    setDeleting(false);
+    if (!result.ok) {
+      setDeleteError(result.error);
+      setConfirmDeleteOpen(false);
       return;
     }
     router.push("/review");
@@ -171,14 +206,85 @@ export default function ReviewDetailPage() {
           className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
         />
         {approveError && <p className="mt-2 text-sm text-danger">{approveError}</p>}
-        <button
-          onClick={handleApprove}
-          disabled={speciesIds.length === 0 || approving}
-          className="mt-3 w-full rounded-full bg-accent py-3 text-sm font-medium text-white shadow-elevated disabled:opacity-40 disabled:shadow-none"
-        >
-          {approving ? "승인 중…" : "승인하기"}
-        </button>
+        {rejectError && <p className="mt-2 text-sm text-danger">{rejectError}</p>}
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={() => setRejectOpen(true)}
+            disabled={approving}
+            className="min-h-[44px] flex-[2] rounded-full border border-danger/40 py-3 text-sm font-medium text-danger disabled:opacity-40"
+          >
+            반려
+          </button>
+          <button
+            onClick={handleApprove}
+            disabled={speciesIds.length === 0 || approving}
+            className="min-h-[44px] flex-[3] rounded-full bg-accent py-3 text-sm font-medium text-white shadow-elevated disabled:opacity-40 disabled:shadow-none"
+          >
+            {approving ? "승인 중…" : "승인"}
+          </button>
+        </div>
       </section>
+
+      <section className="border-t border-separator pt-5">
+        <button
+          type="button"
+          onClick={() => setConfirmDeleteOpen(true)}
+          className="text-sm font-medium text-danger"
+        >
+          탐조 기록 삭제
+        </button>
+        {deleteError && <p className="mt-2 text-xs text-danger">{deleteError}</p>}
+      </section>
+
+      {rejectOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-surface p-5 shadow-elevated">
+            <h2 className="text-[17px] font-semibold">반려 사유</h2>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={4}
+              autoFocus
+              placeholder="작성자에게 전달할 수정 요청 내용을 적어주세요."
+              className="mt-3 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            />
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRejectOpen(false);
+                  setRejectReason("");
+                  setRejectError(null);
+                }}
+                disabled={rejecting}
+                className="flex-1 rounded-full bg-surface-secondary py-3 text-sm font-medium disabled:opacity-40"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleReject}
+                disabled={rejectReason.trim().length === 0 || rejecting}
+                className="flex-1 rounded-full bg-danger py-3 text-sm font-medium text-white disabled:opacity-40"
+              >
+                {rejecting ? "처리 중…" : "반려하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDeleteOpen && (
+        <ConfirmDialog
+          title="탐조 기록을 삭제할까요?"
+          description="삭제한 기록은 복구할 수 없습니다."
+          confirmLabel="삭제"
+          destructive
+          pending={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDeleteOpen(false)}
+        />
+      )}
     </div>
   );
 }

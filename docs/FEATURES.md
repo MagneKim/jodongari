@@ -3,6 +3,7 @@
 ## 핵심 기능 (예정)
 
 - [x] 탐조 기록 (하나의 탐조 활동 = 하나의 기록, 여러 종 포함) — mock 기반, 회장 승인 필요
+- [x] 탐조 기록 삭제(작성자/leader/admin, confirmation 필수) + 검토 반려(revision, leaderNote 필수, 수정 후 재제출)
 - [x] 개인 도감 (관찰 종/횟수/최초·최근 관찰일 자동 집계) — mock 기반
 - [x] 커뮤니티 Feed (좋아요, 댓글, 사진) — mock/local, persistence 없음
 - [x] 경험치 / 레벨 (deterministic `getLevel(totalExp)`)
