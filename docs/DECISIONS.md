@@ -251,3 +251,7 @@
 - Leader는 여전히 비밀번호 재설정 권한이 없다 — 계정 탈취 가능성이 있는 privileged action이라 Admin 전용으로 유지(요구사항 17).
 - public lookup API 2개에 Redis 등 외부 infra 없이 in-memory rate limit(`lib/auth/rate-limit.ts`, IP당 분당 5회)을 적용했다. ponytail 주석으로 명시했듯 서버리스 다중 인스턴스에서는 인스턴스별로 한도가 나뉘는 한계가 있다 — 지금 트래픽 규모(회원 10명 내외)에서는 충분하다고 판단했고, 진짜 분산 rate limit이 필요해지면 Redis/Upstash로 교체한다.
 - 단독 Admin lockout 대비 `scripts/reset-user-password.ts`를 추가했다. 새 CLI dependency 없이 `@supabase/supabase-js`와 Node raw-mode stdin만으로 hidden password prompt를 구현했고, 비밀번호를 CLI argument로 받지 않는다(shell history 노출 방지). 이 script는 production Next 빌드에 포함되지 않는 순수 server-only 로컬 실행 파일이다.
+
+2026-10-02 (Phase 4B-11, desktop nav + role selector UX)
+- desktop TopNav가 "검토"/"관리자"를 별도 메뉴로 노출해 leader/admin이 `/manage` hub에 진입할 방법이 없었다(주소창 직접 입력만 가능) — root cause는 `useNavItems(includeRoleMenus, includeManageTab)`가 TopNav/BottomNav에 다른 플래그를 줘서 mobile만 `MANAGE_ITEM`을 받던 것. 두 nav가 동일하게 "관리" 단일 항목(`/manage`)만 받도록 `useNavItems()`를 통합했다. active 상태는 `/manage`, `/manage/*`, `/review*`, `/admin*` 전부에서 켜진다.
+- `/admin` role select를 native `<select>`에서 작은 custom listbox(button+popover, role/aria-selected, Escape·outside-click 닫힘)로 교체했다 — macOS native dropdown popup은 font/크기를 CSS로 제어할 수 없어 앱 디자인과 어긋났고, role이 멤버/회장/관리자 3개뿐이라 custom listbox가 단순했다. API/업데이트 로직은 그대로 재사용, 실패 시 에러 메시지를 Supabase raw text 대신 고정 한국어 문구("역할을 변경하지 못했습니다.")로 바꿨다(기존엔 `error.message`를 그대로 노출하고 있었음).

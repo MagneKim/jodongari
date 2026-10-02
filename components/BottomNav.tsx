@@ -47,36 +47,39 @@ const NAV_ITEMS = [
   { href: "/my", label: "MY", icon: "user" },
 ] as const;
 
-const REVIEW_ITEM = { href: "/review", label: "검토", icon: "check" } as const;
-const ADMIN_ITEM = { href: "/admin", label: "관리자", icon: "admin" } as const;
 const MANAGE_ITEM = { href: "/manage", label: "관리", icon: "admin" } as const;
 
-function useNavItems(includeRoleMenus: boolean, includeManageTab: boolean) {
+// 관리 영역(hub/검토/관리자 사용자 관리)에 들어와 있는 동안은 전부 "관리" 탭을 active로 표시한다.
+function isManageActive(pathname: string) {
+  return (
+    pathname === "/manage" ||
+    pathname.startsWith("/manage/") ||
+    pathname.startsWith("/review") ||
+    pathname.startsWith("/admin")
+  );
+}
+
+function useNavItems() {
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
   const { currentUser } = useAppData();
 
   const visible = !isLoading && Boolean(user) && pathname !== "/login";
   const canReview = currentUser.role === "leader" || currentUser.role === "admin";
-  const items = [
-    ...NAV_ITEMS,
-    ...(includeRoleMenus && canReview ? [REVIEW_ITEM] : []),
-    ...(includeRoleMenus && currentUser.role === "admin" ? [ADMIN_ITEM] : []),
-    ...(includeManageTab && canReview ? [MANAGE_ITEM] : []),
-  ];
+  const items = [...NAV_ITEMS, ...(canReview ? [MANAGE_ITEM] : [])];
 
   return { visible, items, pathname };
 }
 
 export function BottomNav() {
-  const { visible, items, pathname } = useNavItems(false, true);
+  const { visible, items, pathname } = useNavItems();
   if (!visible) return null;
 
   return (
     <nav className="fixed bottom-0 inset-x-0 z-10 border-t border-separator bg-[rgba(255,255,255,0.82)] pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
       <ul className="mx-auto flex max-w-3xl">
         {items.map((item) => {
-          const active = pathname === item.href;
+          const active = item.href === "/manage" ? isManageActive(pathname) : pathname === item.href;
           return (
             <li key={item.href} className="flex-1">
               <Link
@@ -98,7 +101,7 @@ export function BottomNav() {
 }
 
 export function TopNav() {
-  const { visible, items, pathname } = useNavItems(true, false);
+  const { visible, items, pathname } = useNavItems();
   if (!visible) return null;
 
   return (
@@ -116,7 +119,7 @@ export function TopNav() {
         </Link>
         <ul className="flex flex-1 items-center gap-7">
           {items.map((item) => {
-            const active = pathname === item.href;
+            const active = item.href === "/manage" ? isManageActive(pathname) : pathname === item.href;
             return (
               <li key={item.href}>
                 <Link
